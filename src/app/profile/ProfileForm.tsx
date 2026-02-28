@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import FileUpload from "@/components/upload/FileUpload";
 
 interface User {
   id: string;
@@ -11,11 +12,15 @@ interface User {
   email: string;
   date_of_birth: string | null;
   gender: string | null;
+  profile_photo: string | null;
 }
 
 export default function ProfileForm({ user }: { user: User }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(
+    user.profile_photo || ""
+  );
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -32,6 +37,7 @@ export default function ProfileForm({ user }: { user: User }) {
           phone: formData.get("phone"),
           dateOfBirth: formData.get("dateOfBirth"),
           gender: formData.get("gender"),
+          profilePhoto: profilePhotoUrl,
         }),
       });
 
@@ -52,6 +58,20 @@ export default function ProfileForm({ user }: { user: User }) {
 
   return (
     <form onSubmit={handleSubmit} className="mt-8 space-y-6 text-black">
+      {/* Profile Photo */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h3 className="text-lg font-semibold text-black">Profile Photo</h3>
+        <div className="mt-4">
+          <FileUpload
+            label="Your Photo"
+            type="profile_photo"
+            currentUrl={profilePhotoUrl}
+            onUploadComplete={(url) => setProfilePhotoUrl(url)}
+            accept="image/*"
+          />
+        </div>
+      </div>
+
       {/* Personal Information */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h3 className="text-lg font-semibold text-black">

@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { fullName, phone, dateOfBirth, gender } = body;
+    const { fullName, phone, dateOfBirth, gender, profilePhoto } = body;
 
     // Update user profile
     const { data: userData, error } = await supabase
@@ -56,6 +56,7 @@ export async function PATCH(request: NextRequest) {
         phone,
         date_of_birth: dateOfBirth || null,
         gender: gender || null,
+        profile_photo: profilePhoto || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id)

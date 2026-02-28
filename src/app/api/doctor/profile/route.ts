@@ -58,6 +58,9 @@ export async function PATCH(request: NextRequest) {
       city,
       consultationFee,
       languages,
+      profilePhoto,
+      pmdcCertificateUrl,
+      degreeCertificateUrl,
     } = body;
 
     // Update doctor profile
@@ -75,6 +78,9 @@ export async function PATCH(request: NextRequest) {
         city,
         consultation_fee: parseInt(consultationFee),
         languages,
+        profile_photo: profilePhoto || null,
+        pmdc_certificate_url: pmdcCertificateUrl || null,
+        degree_certificate_url: degreeCertificateUrl || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id)

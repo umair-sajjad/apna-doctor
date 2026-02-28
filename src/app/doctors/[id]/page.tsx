@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import ClinicMap from "@/components/maps/ClinicMap";
 
 export default async function DoctorProfilePage({
   params,
@@ -18,6 +19,22 @@ export default async function DoctorProfilePage({
 
   if (!doctor) {
     notFound();
+  }
+
+  // Get coordinates separately using raw SQL
+  let clinicLocation: { latitude: number; longitude: number } | null = null;
+
+  if (doctor.clinic_location) {
+    const { data: locationData } = await supabase.rpc("get_doctor_location", {
+      doctor_id: id,
+    });
+
+    if (locationData && locationData.length > 0) {
+      clinicLocation = {
+        latitude: locationData[0].lat,
+        longitude: locationData[0].lng,
+      };
+    }
   }
 
   const { data: reviews } = await supabase
@@ -109,6 +126,21 @@ export default async function DoctorProfilePage({
               </p>
             </div>
           </div>
+
+          {/* Clinic Location Map */}
+          {clinicLocation && (
+            <div className="mt-8 border-t pt-6">
+              <h2 className="mb-4 text-xl font-semibold text-black">
+                Clinic Location
+              </h2>
+              <ClinicMap
+                latitude={clinicLocation.latitude}
+                longitude={clinicLocation.longitude}
+                clinicName={doctor.clinic_name}
+                clinicAddress={doctor.clinic_address}
+              />
+            </div>
+          )}
 
           {/* Reviews */}
           <div className="mt-8 border-t pt-6">

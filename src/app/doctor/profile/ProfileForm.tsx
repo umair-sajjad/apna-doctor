@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import FileUpload from "@/components/upload/FileUpload";
 
 interface Doctor {
   id: string;
@@ -18,6 +19,9 @@ interface Doctor {
   city: string;
   consultation_fee: number;
   languages: string[];
+  profile_photo: string | null;
+  pmdc_certificate_url: string | null;
+  degree_certificate_url: string | null;
 }
 
 interface Specialization {
@@ -35,6 +39,17 @@ export default function ProfileForm({
   const [loading, setLoading] = useState(false);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(
     doctor.languages || []
+  );
+
+  // Document URLs state
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(
+    doctor.profile_photo || ""
+  );
+  const [pmdcCertUrl, setPmdcCertUrl] = useState(
+    doctor.pmdc_certificate_url || ""
+  );
+  const [degreeCertUrl, setDegreeCertUrl] = useState(
+    doctor.degree_certificate_url || ""
   );
 
   const toggleLanguage = (lang: string) => {
@@ -65,6 +80,9 @@ export default function ProfileForm({
           city: formData.get("city"),
           consultationFee: formData.get("consultationFee"),
           languages: selectedLanguages,
+          profilePhoto: profilePhotoUrl,
+          pmdcCertificateUrl: pmdcCertUrl,
+          degreeCertificateUrl: degreeCertUrl,
         }),
       });
 
@@ -245,10 +263,10 @@ export default function ProfileForm({
               key={lang}
               type="button"
               onClick={() => toggleLanguage(lang)}
-              className={`rounded-full px-4 py-2 text-sm font-medium ${
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                 selectedLanguages.includes(lang)
                   ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               }`}
             >
               {lang}
@@ -257,12 +275,55 @@ export default function ProfileForm({
         </div>
       </div>
 
+      {/* Documents & Verification */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h3 className="text-lg font-semibold">Documents & Verification</h3>
+        <p className="mt-1 text-sm text-gray-600">
+          Upload your documents for verification. Accepted formats: JPG, PNG,
+          PDF (max 5MB)
+        </p>
+        <div className="mt-6 space-y-6">
+          <FileUpload
+            label="Profile Photo"
+            type="profile_photo"
+            currentUrl={profilePhotoUrl}
+            onUploadComplete={(url) => setProfilePhotoUrl(url)}
+            accept="image/*"
+          />
+
+          <FileUpload
+            label="PMDC Certificate"
+            type="pmdc_certificate"
+            currentUrl={pmdcCertUrl}
+            onUploadComplete={(url) => setPmdcCertUrl(url)}
+            accept="image/*,application/pdf"
+            required
+          />
+
+          <FileUpload
+            label="Degree Certificate"
+            type="degree_certificate"
+            currentUrl={degreeCertUrl}
+            onUploadComplete={(url) => setDegreeCertUrl(url)}
+            accept="image/*,application/pdf"
+            required
+          />
+        </div>
+      </div>
+
       {/* Submit */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-4">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="rounded-md border border-gray-300 px-6 py-3 text-gray-700 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
         <button
           type="submit"
           disabled={loading}
-          className="rounded-md bg-blue-600 px-6 py-3 text-white hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-md bg-blue-600 px-6 py-3 text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
         >
           {loading ? "Saving..." : "Save Changes"}
         </button>
