@@ -46,14 +46,14 @@ export async function proxy(request: NextRequest) {
   );
 
   // Auth routes (login/register)
-  const authRoutes = ["/login", "/register"];
+  const authRoutes = ["/login/user", "/register/user"];
   const isAuthRoute = authRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
 
   // Redirect to login if accessing protected route without auth
   if (isProtectedRoute && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/login/user", request.url));
   }
 
   // Redirect to appropriate dashboard based on user type

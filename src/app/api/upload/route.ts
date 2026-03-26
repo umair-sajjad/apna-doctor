@@ -47,12 +47,6 @@ export async function POST(request: NextRequest) {
       fileName: `${user.id}_${type}_${Date.now()}.${file.name.split(".").pop()}`,
       folder: `/apnadoctor/${type}`,
       useUniqueFileName: true,
-      transformation:
-        type === "profile_photo"
-          ? {
-              pre: "w-400,h-400,c-at_max",
-            }
-          : undefined,
     });
 
     return NextResponse.json({

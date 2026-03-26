@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import LogoutButton from "@/components/LogoutButton";
+import DoctorNavbar from "@/components/shared/DoctorNavbar";
 
 export default async function DoctorDashboardPage() {
   const supabase = await createClient();
@@ -22,7 +22,7 @@ export default async function DoctorDashboardPage() {
     .single();
 
   if (!doctor) {
-    redirect("/dashboard");
+    redirect("/login/doctor");
   }
 
   // Get today's date
@@ -65,38 +65,7 @@ export default async function DoctorDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-blue-600">
-              ApnaDoctor - Doctor Portal
-            </h1>
-            <nav className="flex gap-4">
-              <Link
-                href="/doctor/dashboard"
-                className="font-medium text-blue-600"
-              >
-                Dashboard
-              </Link>
-              <Link href="/doctor/appointments" className="text-gray-600">
-                Appointments
-              </Link>
-              <Link href="/doctor/availability" className="text-gray-600">
-                Availability
-              </Link>
-              <Link href="/doctor/profile" className="text-gray-600">
-                Profile
-              </Link>
-              <Link href="/doctor/analytics" className="text-gray-600">
-                Analytics
-              </Link>
-              <LogoutButton />
-            </nav>
-          </div>
-        </div>
-      </header>
-
+      <DoctorNavbar />
       <div className="mx-auto max-w-7xl px-4 py-8">
         <h2 className="text-3xl font-bold text-black">
           Welcome, Dr. {doctor.full_name}
@@ -126,7 +95,7 @@ export default async function DoctorDashboardPage() {
           <div className="rounded-lg border border-gray-200 bg-white p-6">
             <p className="text-sm text-gray-600">Average Rating</p>
             <p className="mt-2 text-3xl font-bold text-yellow-600">
-              {doctor.average_rating.toFixed(1)} ⭐
+              {(doctor.average_rating ?? 0).toFixed(1)} ⭐
             </p>
           </div>
         </div>
@@ -223,6 +192,16 @@ export default async function DoctorDashboardPage() {
             )}
           </div>
         </div>
+
+        <Link
+          href="/doctor/analytics"
+          className="rounded-lg border border-gray-200 bg-white p-6 transition-shadow hover:shadow-md"
+        >
+          <h3 className="text-lg font-semibold text-black">📊 Analytics</h3>
+          <p className="mt-2 text-sm text-gray-600">
+            View detailed revenue reports and performance metrics
+          </p>
+        </Link>
       </div>
     </div>
   );

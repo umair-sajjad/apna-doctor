@@ -46,7 +46,24 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { fullName, phone, dateOfBirth, gender, profilePhoto } = body;
+    const {
+      fullName,
+      phone,
+      dateOfBirth,
+      gender,
+      profilePhoto,
+      maritalStatus,
+      hasDiabetes,
+      hasHighBloodPressure,
+      diseases,
+      // Address fields
+      country,
+      city,
+      area,
+      street,
+      houseNumber,
+      zipCode,
+    } = body;
 
     // Update user profile
     const { data: userData, error } = await supabase
@@ -57,6 +74,17 @@ export async function PATCH(request: NextRequest) {
         date_of_birth: dateOfBirth || null,
         gender: gender || null,
         profile_photo: profilePhoto || null,
+        marital_status: maritalStatus || null,
+        has_diabetes: hasDiabetes || false,
+        has_high_blood_pressure: hasHighBloodPressure || false,
+        diseases: diseases || [],
+        // Address fields
+        country: country || null,
+        city: city || null,
+        area: area || null,
+        street: street || null,
+        house_number: houseNumber || null,
+        zip_code: zipCode || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id)
@@ -66,7 +94,7 @@ export async function PATCH(request: NextRequest) {
     if (error) {
       console.error("Update error:", error);
       return NextResponse.json(
-        { error: "Failed to update profile" },
+        { error: error.message || "Failed to update profile" },
         { status: 500 }
       );
     }

@@ -17,7 +17,6 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is admin
     const { data: admin } = await supabase
       .from("admins")
       .select("id")
@@ -28,54 +27,33 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const body = await request.json();
-    const { approve, reason } = body;
+    const { approve, reason } = await request.json();
 
-    if (approve) {
-      // Approve doctor
-      const { data: doctor, error } = await supabase
-        .from("doctors")
-        .update({
-          is_verified: true,
-          verification_status: "approved",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select()
-        .single();
+    const { data: doctor, error } = await supabase
+      .from("doctors")
+      .update({
+        is_verified: approve,
+        verified_at: approve ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
 
-      if (error) {
-        return NextResponse.json(
-          { error: "Failed to verify doctor" },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({ doctor, message: "Doctor approved" });
-    } else {
-      // Reject doctor
-      const { data: doctor, error } = await supabase
-        .from("doctors")
-        .update({
-          verification_status: "rejected",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) {
-        return NextResponse.json(
-          { error: "Failed to reject doctor" },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        doctor,
-        message: `Doctor rejected: ${reason}`,
-      });
+    if (error) {
+      console.error("Verify doctor error:", error);
+      return NextResponse.json(
+        { error: "Failed to update doctor" },
+        { status: 500 }
+      );
     }
+
+    return NextResponse.json({
+      doctor,
+      message: approve
+        ? "Doctor approved successfully"
+        : `Doctor rejected${reason ? `: ${reason}` : ""}`,
+    });
   } catch (error) {
     console.error("Verify doctor error:", error);
     return NextResponse.json(

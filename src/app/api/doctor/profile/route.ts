@@ -63,7 +63,39 @@ export async function PATCH(request: NextRequest) {
       degreeCertificateUrl,
     } = body;
 
-    // Update doctor profile
+    if (!fullName?.trim()) {
+      return NextResponse.json(
+        { error: "Full name is required" },
+        { status: 400 }
+      );
+    }
+    if (!specialization) {
+      return NextResponse.json(
+        { error: "Specialization is required" },
+        { status: 400 }
+      );
+    }
+
+    const parsedExperience =
+      experience !== "" && experience != null ? parseInt(experience) : null;
+    const parsedFee =
+      consultationFee !== "" && consultationFee != null
+        ? parseInt(consultationFee)
+        : null;
+
+    if (parsedExperience !== null && isNaN(parsedExperience)) {
+      return NextResponse.json(
+        { error: "Experience must be a valid number" },
+        { status: 400 }
+      );
+    }
+    if (parsedFee !== null && isNaN(parsedFee)) {
+      return NextResponse.json(
+        { error: "Consultation fee must be a valid number" },
+        { status: 400 }
+      );
+    }
+
     const { data: doctor, error } = await supabase
       .from("doctors")
       .update({
@@ -78,9 +110,9 @@ export async function PATCH(request: NextRequest) {
         city,
         consultation_fee: parseInt(consultationFee),
         languages,
-        profile_photo: profilePhoto || null,
-        pmdc_certificate_url: pmdcCertificateUrl || null,
-        degree_certificate_url: degreeCertificateUrl || null,
+        profile_image: profilePhoto || null,
+        pmdc_certificate: pmdcCertificateUrl || null,
+        degree_document: degreeCertificateUrl || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id)
@@ -89,6 +121,12 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error("Update error:", error);
+      if (error.code === "23502") {
+        return NextResponse.json(
+          { error: "Please fill in all required fields" },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
         { error: "Failed to update profile" },
         { status: 500 }

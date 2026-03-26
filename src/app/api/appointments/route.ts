@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
-import { sendAppointmentConfirmation } from "@/lib/notifications/service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,8 +84,8 @@ export async function POST(request: NextRequest) {
         patient_email: patientEmail,
         chief_complaint: chiefComplaint || null,
         consultation_fee: doctor.consultation_fee,
-        status: "confirmed",
-        payment_status: "completed",
+        status: "pending",
+        payment_status: "pending",
       })
       .select()
       .single();
@@ -98,12 +97,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    // Send confirmation notifications asynchronously (don't wait for it)
-    sendAppointmentConfirmation(appointment.id).catch((err) => {
-      console.error("Failed to send confirmation notification:", err);
-      // Log error but don't fail the appointment creation
-    });
 
     return NextResponse.json({ appointment }, { status: 201 });
   } catch (error) {
@@ -127,10 +120,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get user's appointments
+    // Auto-cancel unpaid pending appointments older than 30 minutes
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    await supabase
+      .from("appointments")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .eq("payment_status", "pending")
+      .lt("created_at", cutoff);
+
     const { data: appointments, error } = await supabase
       .from("appointments")
-      .select("*, doctors(full_name, specialization)")
+      .select("*, doctors(full_name, specialization, clinic_name, clinic_address, phone)")
       .eq("user_id", user.id)
       .order("appointment_date", { ascending: false })
       .order("appointment_time", { ascending: false });

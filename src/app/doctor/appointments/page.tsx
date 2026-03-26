@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import DoctorNavbar from "@/components/shared/DoctorNavbar";
 
 export default async function DoctorAppointmentsPage({
   searchParams,
@@ -48,34 +49,7 @@ export default async function DoctorAppointmentsPage({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header - same as dashboard */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-blue-600">
-              ApnaDoctor - Doctor Portal
-            </h1>
-            <nav className="flex gap-4">
-              <Link href="/doctor/dashboard" className="text-gray-600">
-                Dashboard
-              </Link>
-              <Link
-                href="/doctor/appointments"
-                className="font-medium text-blue-600"
-              >
-                Appointments
-              </Link>
-              <Link href="/doctor/availability" className="text-gray-600">
-                Availability
-              </Link>
-              <Link href="/doctor/profile" className="text-gray-600">
-                Profile
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </header>
-
+      <DoctorNavbar />
       <div className="mx-auto max-w-7xl px-4 py-8">
         <h2 className="text-3xl font-bold">All Appointments</h2>
 

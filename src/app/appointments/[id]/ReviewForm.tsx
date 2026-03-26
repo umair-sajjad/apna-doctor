@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Star, Loader2 } from "lucide-react";
 
 export default function ReviewForm({
   appointmentId,
@@ -12,22 +13,18 @@ export default function ReviewForm({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [rating, setRating] = useState(0);
-  const [hoveredRating, setHoveredRating] = useState(0);
+  const [hovered, setHovered] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (rating === 0) {
       toast.error("Please select a rating");
       return;
     }
-
     setLoading(true);
-
     const formData = new FormData(e.currentTarget);
-
     try {
-      const response = await fetch("/api/reviews", {
+      const res = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -36,13 +33,8 @@ export default function ReviewForm({
           reviewText: formData.get("reviewText"),
         }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to submit review");
-      }
-
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit review");
       toast.success("Review submitted successfully");
       router.refresh();
     } catch (err) {
@@ -52,50 +44,68 @@ export default function ReviewForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-      {/* Star Rating */}
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Stars */}
       <div>
-        <label className="block text-sm font-medium text-black">Rating</label>
-        <div className="mt-2 flex gap-2">
+        <label className="mb-2 block text-xs font-semibold tracking-wide text-gray-500 uppercase">
+          Rating
+        </label>
+        <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((star) => (
             <button
               key={star}
               type="button"
               onClick={() => setRating(star)}
-              onMouseEnter={() => setHoveredRating(star)}
-              onMouseLeave={() => setHoveredRating(0)}
-              className="text-3xl transition-colors"
+              onMouseEnter={() => setHovered(star)}
+              onMouseLeave={() => setHovered(0)}
+              className="transition-transform hover:scale-110"
             >
-              {star <= (hoveredRating || rating) ? (
-                <span className="text-yellow-500">⭐</span>
-              ) : (
-                <span className="text-gray-300">☆</span>
-              )}
+              <Star
+                size={28}
+                className={
+                  star <= (hovered || rating)
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "fill-gray-100 text-gray-300"
+                }
+              />
             </button>
           ))}
         </div>
       </div>
 
-      {/* Review Text */}
+      {/* Text */}
       <div>
-        <label className="block text-sm font-medium text-black">
+        <label className="mb-2 block text-xs font-semibold tracking-wide text-gray-500 uppercase">
           Review (Optional)
         </label>
         <textarea
           name="reviewText"
           rows={4}
-          placeholder="Share your experience with this doctor..."
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-black"
+          placeholder="Share your experience with this doctor…"
+          className="w-full resize-none rounded-xl border px-4 py-3 text-sm transition focus:outline-none"
+          style={{
+            borderColor: "var(--primary-light)",
+            color: "var(--text-dark)",
+            background: "var(--bg-soft)",
+          }}
         />
       </div>
 
-      {/* Submit */}
       <button
         type="submit"
         disabled={loading || rating === 0}
-        className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+        style={{
+          background: "linear-gradient(135deg, var(--primary), var(--accent))",
+        }}
       >
-        {loading ? "Submitting..." : "Submit Review"}
+        {loading ? (
+          <>
+            <Loader2 size={15} className="animate-spin" /> Submitting…
+          </>
+        ) : (
+          "Submit Review"
+        )}
       </button>
     </form>
   );
