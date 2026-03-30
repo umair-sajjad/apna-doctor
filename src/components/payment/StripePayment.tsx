@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -9,6 +9,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { toast } from "sonner";
+import { ShieldCheck, Loader2 } from "lucide-react";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -27,11 +28,7 @@ function PaymentForm({ appointmentId, bookingReference }: PaymentFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!stripe || !elements) {
-      return;
-    }
-
+    if (!stripe || !elements) return;
     setLoading(true);
 
     const { error } = await stripe.confirmPayment({
@@ -48,20 +45,32 @@ function PaymentForm({ appointmentId, bookingReference }: PaymentFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <PaymentElement />
 
       <button
         type="submit"
         disabled={!stripe || loading}
-        className="w-full rounded-md bg-blue-600 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50"
+        style={{
+          background: "linear-gradient(135deg, var(--primary), var(--accent))",
+        }}
       >
-        {loading ? "Processing..." : "Pay Now"}
+        {loading ? (
+          <>
+            <Loader2 size={15} className="animate-spin" /> Processing…
+          </>
+        ) : (
+          "Pay Now"
+        )}
       </button>
 
-      <p className="text-center text-xs text-gray-500">
-        🔒 Secured by Stripe. Your payment information is encrypted and secure.
-      </p>
+      <div className="flex items-center justify-center gap-2">
+        <ShieldCheck size={13} className="text-gray-400" />
+        <p className="text-xs text-gray-400">
+          Secured by Stripe. Your payment information is encrypted.
+        </p>
+      </div>
     </form>
   );
 }
@@ -76,24 +85,22 @@ export default function StripePayment({
     appearance: {
       theme: "stripe" as const,
       variables: {
-        colorPrimary: "#2563eb",
+        colorPrimary: "#1A6FB8",
+        colorBackground: "#ffffff",
+        colorText: "#1E3A5F",
+        borderRadius: "12px",
+        fontFamily: "DM Sans, sans-serif",
       },
     },
   };
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow-md">
-      <h2 className="mb-4 text-xl font-semibold text-black">
-        Complete Payment
-      </h2>
-
-      <Elements stripe={stripePromise} options={options}>
-        <PaymentForm
-          clientSecret={clientSecret}
-          appointmentId={appointmentId}
-          bookingReference={bookingReference}
-        />
-      </Elements>
-    </div>
+    <Elements stripe={stripePromise} options={options}>
+      <PaymentForm
+        clientSecret={clientSecret}
+        appointmentId={appointmentId}
+        bookingReference={bookingReference}
+      />
+    </Elements>
   );
 }

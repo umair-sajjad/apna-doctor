@@ -5,6 +5,19 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import FileUpload from "@/components/upload/FileUpload";
 import TagInput from "@/components/ui/TagInput";
+import AddressInput from "@/components/ui/AddressInput";
+import {
+  User,
+  Phone,
+  Stethoscope,
+  DollarSign,
+  Globe,
+  Building2,
+  MapPin,
+  FileText,
+  ImageIcon,
+  Loader2,
+} from "lucide-react";
 
 const SPECIALIZATIONS = [
   "General Physician",
@@ -29,16 +42,6 @@ const SPECIALIZATIONS = [
   "Dentist",
 ];
 
-const LANGUAGE_OPTIONS = [
-  "Urdu",
-  "English",
-  "Punjabi",
-  "Sindhi",
-  "Pashto",
-  "Balochi",
-  "Saraiki",
-];
-
 interface Doctor {
   id: string;
   full_name: string;
@@ -57,6 +60,34 @@ interface Doctor {
   degree_document: string | null;
 }
 
+const CARD = "overflow-hidden rounded-2xl bg-white";
+const CARD_STYLE = { border: "1px solid var(--primary-light)" };
+const LABEL = "mb-1.5 block text-xs font-semibold uppercase tracking-wide";
+const LABEL_STYLE = { color: "var(--text-dark)" };
+const INPUT =
+  "w-full rounded-xl border px-4 py-3 text-sm transition focus:outline-none";
+const INPUT_STYLE = {
+  borderColor: "var(--primary-light)",
+  color: "var(--text-dark)",
+};
+
+function SectionHeader({ icon: Icon, label }: { icon: any; label: string }) {
+  return (
+    <div
+      className="flex items-center gap-2 border-b px-6 py-4"
+      style={{ borderColor: "var(--primary-light)" }}
+    >
+      <Icon size={15} style={{ color: "var(--primary)" }} />
+      <p
+        className="text-xs font-semibold tracking-widest uppercase"
+        style={{ color: "var(--accent)" }}
+      >
+        {label}
+      </p>
+    </div>
+  );
+}
+
 export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -70,11 +101,9 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-
     const formData = new FormData(e.currentTarget);
-
     try {
-      const response = await fetch("/api/doctor/profile", {
+      const res = await fetch("/api/doctor/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -94,13 +123,8 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
           degreeCertificateUrl: degreeUrl,
         }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update profile");
-      }
-
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update profile");
       toast.success("Profile updated successfully");
       router.push("/doctor/profile");
     } catch (err) {
@@ -111,11 +135,11 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Profile Photo */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-gray-900">Profile Photo</h3>
-        <div className="mt-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Profile photo */}
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={ImageIcon} label="Profile Photo" />
+        <div className="p-6">
           <FileUpload
             label="Your Photo"
             type="profile_photo"
@@ -126,14 +150,12 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
         </div>
       </div>
 
-      {/* Personal Information */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Personal Information
-        </h3>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+      {/* Personal */}
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={User} label="Personal Information" />
+        <div className="grid grid-cols-1 gap-5 p-6 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className={LABEL} style={LABEL_STYLE}>
               Full Name
             </label>
             <input
@@ -141,12 +163,12 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
               name="fullName"
               defaultValue={doctor.full_name}
               required
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className={LABEL} style={LABEL_STYLE}>
               Phone Number
             </label>
             <input
@@ -154,27 +176,27 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
               name="phone"
               defaultValue={doctor.phone}
               required
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
         </div>
       </div>
 
-      {/* Professional Information */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Professional Information
-        </h3>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+      {/* Professional */}
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={Stethoscope} label="Professional Information" />
+        <div className="grid grid-cols-1 gap-5 p-6 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className={LABEL} style={LABEL_STYLE}>
               Specialization
             </label>
             <select
               name="specialization"
               defaultValue={doctor.specialization || ""}
               required
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={INPUT}
+              style={INPUT_STYLE}
             >
               <option value="">Select specialization</option>
               {SPECIALIZATIONS.map((s) => (
@@ -184,9 +206,8 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
               ))}
             </select>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className={LABEL} style={LABEL_STYLE}>
               Qualification
             </label>
             <input
@@ -194,12 +215,12 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
               name="qualification"
               defaultValue={doctor.qualification || ""}
               placeholder="e.g. MBBS, FCPS"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className={LABEL} style={LABEL_STYLE}>
               Years of Experience
             </label>
             <input
@@ -208,12 +229,12 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
               defaultValue={doctor.experience || ""}
               min="0"
               max="60"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className={LABEL} style={LABEL_STYLE}>
               Consultation Fee (PKR)
             </label>
             <input
@@ -221,70 +242,67 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
               name="consultationFee"
               defaultValue={doctor.consultation_fee || ""}
               min="0"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700">
+          <div className="sm:col-span-2">
+            <label className={LABEL} style={LABEL_STYLE}>
               Bio
             </label>
             <textarea
               name="bio"
               defaultValue={doctor.bio || ""}
               rows={4}
-              placeholder="Tell patients about your experience and expertise..."
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              placeholder="Tell patients about your experience and expertise…"
+              className={`${INPUT} resize-none`}
+              style={{ ...INPUT_STYLE, background: "var(--bg-soft)" }}
             />
           </div>
-
-          <div className="col-span-2">
-            <label className="mb-2 block text-sm font-medium text-gray-700">
+          <div className="sm:col-span-2">
+            <label className={`${LABEL} mb-2`} style={LABEL_STYLE}>
               Languages Spoken
             </label>
             <TagInput
               value={languages}
               onChange={setLanguages}
-              placeholder="Add language..."
-              suggestions={LANGUAGE_OPTIONS}
+              placeholder="Add language…"
               allowNone={false}
             />
           </div>
         </div>
       </div>
 
-      {/* Clinic Information */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Clinic Information
-        </h3>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+      {/* Clinic */}
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={Building2} label="Clinic Information" />
+        <div className="grid grid-cols-1 gap-5 p-6 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className={LABEL} style={LABEL_STYLE}>
               Clinic Name
             </label>
             <input
               type="text"
               name="clinicName"
               defaultValue={doctor.clinic_name || ""}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className={LABEL} style={LABEL_STYLE}>
               City
             </label>
             <input
               type="text"
               name="city"
               defaultValue={doctor.city || ""}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700">
+          <div className="sm:col-span-2">
+            <label className={LABEL} style={LABEL_STYLE}>
               Clinic Address
             </label>
             <input
@@ -292,22 +310,21 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
               name="clinicAddress"
               defaultValue={doctor.clinic_address || ""}
               placeholder="Full clinic address"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
         </div>
       </div>
 
       {/* Documents */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Verification Documents
-        </h3>
-        <p className="mt-1 text-sm text-gray-500">
-          Upload your PMDC certificate and degree to get verified.
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-6">
-          <div>
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={FileText} label="Verification Documents" />
+        <div className="p-6">
+          <p className="mb-5 text-xs text-gray-400">
+            Upload your PMDC certificate and degree to get verified.
+          </p>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <FileUpload
               label="PMDC Certificate"
               type="pmdc_certificate"
@@ -315,8 +332,6 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
               onUploadComplete={(url) => setPmdcUrl(url)}
               accept=".pdf,image/*"
             />
-          </div>
-          <div>
             <FileUpload
               label="Degree Certificate"
               type="degree_certificate"
@@ -329,20 +344,34 @@ export default function DoctorProfileEditForm({ doctor }: { doctor: Doctor }) {
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-4">
+      <div className="flex justify-end gap-3 pb-4">
         <button
           type="button"
           onClick={() => router.push("/doctor/profile")}
-          className="rounded-md border border-gray-300 px-6 py-2.5 text-gray-700 hover:bg-gray-50"
+          className="rounded-xl border px-6 py-3 text-sm font-semibold transition-all hover:bg-gray-50"
+          style={{
+            borderColor: "var(--primary-light)",
+            color: "var(--text-dark)",
+          }}
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="rounded-md bg-blue-600 px-6 py-2.5 text-white hover:bg-blue-700 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--primary), var(--accent))",
+          }}
         >
-          {loading ? "Saving..." : "Save Changes"}
+          {loading ? (
+            <>
+              <Loader2 size={14} className="animate-spin" /> Saving…
+            </>
+          ) : (
+            "Save Changes"
+          )}
         </button>
       </div>
     </form>

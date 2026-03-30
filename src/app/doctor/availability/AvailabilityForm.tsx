@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Pencil, Trash2, Loader2, X, Check } from "lucide-react";
 
 interface AvailabilityData {
   id: string;
@@ -11,6 +12,15 @@ interface AvailabilityData {
   slot_duration: number;
   is_active: boolean;
 }
+
+const INPUT_CLASS =
+  "w-full rounded-xl border px-3 py-2.5 text-sm transition focus:outline-none";
+const INPUT_STYLE = {
+  borderColor: "var(--primary-light)",
+  color: "var(--text-dark)",
+};
+const LABEL_CLASS = "mb-1 block text-xs font-semibold uppercase tracking-wide";
+const LABEL_STYLE = { color: "var(--text-dark)" };
 
 export default function AvailabilityForm({
   day,
@@ -22,15 +32,14 @@ export default function AvailabilityForm({
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-
     const formData = new FormData(e.currentTarget);
-
     try {
-      const response = await fetch("/api/doctor/availability", {
+      const res = await fetch("/api/doctor/availability", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -40,14 +49,9 @@ export default function AvailabilityForm({
           slotDuration: parseInt(formData.get("slotDuration") as string),
         }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to save availability");
-      }
-
-      toast.success("Availability saved successfully");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save availability");
+      toast.success("Availability saved");
       setIsEditing(false);
       router.refresh();
     } catch (err) {
@@ -59,80 +63,102 @@ export default function AvailabilityForm({
 
   const handleDelete = async () => {
     if (!existing) return;
-
-    setLoading(true);
-
+    setDeleting(true);
     try {
-      const response = await fetch(
-        `/api/doctor/availability?id=${existing.id}`,
-        { method: "DELETE" }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete availability");
-      }
-
+      const res = await fetch(`/api/doctor/availability?id=${existing.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete availability");
       toast.success("Availability removed");
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
-      setLoading(false);
+      setDeleting(false);
     }
   };
 
+  /* ── Collapsed view ─────────────────────────────── */
   if (!isEditing) {
     return (
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <button
           onClick={() => setIsEditing(true)}
-          className="rounded-md border border-blue-600 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+          className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold transition-all hover:bg-blue-50"
+          style={{
+            borderColor: "var(--primary-light)",
+            color: "var(--primary)",
+          }}
         >
+          <Pencil size={12} />
           {existing ? "Edit" : "Set Hours"}
         </button>
         {existing && (
           <button
             onClick={handleDelete}
-            disabled={loading}
-            className="rounded-md border border-red-600 px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+            disabled={deleting}
+            className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold transition-all hover:bg-red-50 disabled:opacity-50"
+            style={{ borderColor: "#fca5a5", color: "#dc2626" }}
           >
-            {loading ? "Removing..." : "Remove"}
+            {deleting ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Trash2 size={12} />
+            )}
+            {deleting ? "Removing…" : "Remove"}
           </button>
         )}
       </div>
     );
   }
 
+  /* ── Edit form ───────────────────────────────────── */
   return (
-    <form onSubmit={handleSubmit} className="w-full">
-      <div className="grid grid-cols-3 gap-4">
+    <form
+      onSubmit={handleSubmit}
+      className="w-full rounded-2xl p-4"
+      style={{
+        background: "var(--bg-soft)",
+        border: "1px solid var(--primary-light)",
+      }}
+    >
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
-          <label className="block text-sm font-medium">Start Time</label>
+          <label className={LABEL_CLASS} style={LABEL_STYLE}>
+            Start Time
+          </label>
           <input
             type="time"
             name="startTime"
             defaultValue={existing?.start_time || "09:00"}
             required
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
+            className={INPUT_CLASS}
+            style={INPUT_STYLE}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">End Time</label>
+          <label className={LABEL_CLASS} style={LABEL_STYLE}>
+            End Time
+          </label>
           <input
             type="time"
             name="endTime"
             defaultValue={existing?.end_time || "17:00"}
             required
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
+            className={INPUT_CLASS}
+            style={INPUT_STYLE}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Slot Duration</label>
+          <label className={LABEL_CLASS} style={LABEL_STYLE}>
+            Slot Duration
+          </label>
           <select
             name="slotDuration"
             defaultValue={existing?.slot_duration || 30}
             required
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
+            className={INPUT_CLASS}
+            style={INPUT_STYLE}
           >
             <option value="15">15 minutes</option>
             <option value="30">30 minutes</option>
@@ -146,16 +172,29 @@ export default function AvailabilityForm({
         <button
           type="submit"
           disabled={loading}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-xl px-5 py-2 text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--primary), var(--accent))",
+          }}
         >
-          {loading ? "Saving..." : "Save"}
+          {loading ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Check size={12} />
+          )}
+          {loading ? "Saving…" : "Save"}
         </button>
         <button
           type="button"
           onClick={() => setIsEditing(false)}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold transition-all hover:bg-gray-100"
+          style={{
+            borderColor: "var(--primary-light)",
+            color: "var(--text-dark)",
+          }}
         >
-          Cancel
+          <X size={12} /> Cancel
         </button>
       </div>
     </form>

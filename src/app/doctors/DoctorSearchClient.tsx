@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import DoctorsMap from "@/components/maps/DoctorsMap";
 import {
   Star,
@@ -14,9 +15,12 @@ import {
   ChevronRight,
   X,
   Stethoscope,
-  Clock,
   Filter,
+  Search,
+  Loader2,
 } from "lucide-react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Doctor {
   id: string;
@@ -40,14 +44,28 @@ interface Specialization {
   name: string;
 }
 
+interface InitialParams {
+  q?: string;
+  specialization?: string;
+  city?: string;
+  gender?: string;
+  minRating?: string;
+  maxFee?: string;
+  language?: string;
+  sortBy?: string;
+  page?: string;
+}
+
 interface Props {
   doctors: Doctor[];
   specializations: Specialization[];
-  initialParams: any;
+  initialParams: InitialParams;
   totalCount: number;
   currentPage: number;
   pageSize: number;
 }
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const CITIES = [
   "Lahore",
@@ -61,6 +79,37 @@ const CITIES = [
 const SELECT_CLASS =
   "mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm transition focus:outline-none";
 
+// ─── Highlight helper ─────────────────────────────────────────────────────────
+
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (!query.trim() || !text) return <>{text ?? ""}</>;
+
+  const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${escaped})`, "gi");
+  const parts = text.split(regex);
+
+  // Reset regex lastIndex for the test calls below
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.trim().toLowerCase() ||
+        regex.test(part) ? (
+          <mark
+            key={i}
+            className="rounded bg-yellow-100 px-0.5 font-semibold not-italic text-yellow-900"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function DoctorSearchClient({
   doctors,
   specializations,
@@ -69,13 +118,132 @@ export default function DoctorSearchClient({
   currentPage,
   pageSize,
 }: Props) {
+  const router = useRouter();
+
+  // ── View state ──────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const totalPages = Math.ceil(totalCount / pageSize);
+  // ── Search state ────────────────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState(initialParams.q ?? "");
+  const [isSearching, setIsSearching] = useState(false);
 
-  function buildPageUrl(page: number) {
+  // ── Display state (overridden by live search results) ───────────────────────
+  const [displayDoctors, setDisplayDoctors] = useState<Doctor[]>(doctors);
+  const [displayTotalCount, setDisplayTotalCount] = useState(totalCount);
+  const [displayPage, setDisplayPage] = useState(currentPage);
+  const [displayTotalPages, setDisplayTotalPages] = useState(
+    Math.ceil(totalCount / pageSize)
+  );
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync display state when server re-renders with new props
+  useEffect(() => {
+    setDisplayDoctors(doctors);
+    setDisplayTotalCount(totalCount);
+    setDisplayPage(currentPage);
+    setDisplayTotalPages(Math.ceil(totalCount / pageSize));
+    setSearchQuery(initialParams.q ?? "");
+  }, [doctors, totalCount, currentPage, pageSize, initialParams.q]);
+
+  // ── Core search function ────────────────────────────────────────────────────
+  const performSearch = useCallback(
+    async (q: string, page = 1) => {
+      setIsSearching(true);
+      try {
+        const p = new URLSearchParams();
+        if (q.trim()) p.set("q", q.trim());
+        if (initialParams.specialization)
+          p.set("specialization", initialParams.specialization);
+        if (initialParams.city) p.set("city", initialParams.city);
+        if (initialParams.gender) p.set("gender", initialParams.gender);
+        if (initialParams.minRating)
+          p.set("minRating", initialParams.minRating);
+        if (initialParams.maxFee) p.set("maxFee", initialParams.maxFee);
+        if (initialParams.language) p.set("language", initialParams.language);
+        if (initialParams.sortBy) p.set("sortBy", initialParams.sortBy);
+        p.set("page", String(page));
+
+        const res = await fetch(`/api/doctors/search?${p.toString()}`);
+        if (!res.ok) throw new Error("Search request failed");
+        const data = await res.json();
+
+        setDisplayDoctors(data.doctors ?? []);
+        setDisplayTotalCount(data.totalCount ?? 0);
+        setDisplayPage(data.page ?? 1);
+        setDisplayTotalPages(data.totalPages ?? 1);
+      } catch {
+        // On API failure, fall back to server-rendered results silently
+        setDisplayDoctors(doctors);
+        setDisplayTotalCount(totalCount);
+        setDisplayPage(currentPage);
+        setDisplayTotalPages(Math.ceil(totalCount / pageSize));
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [initialParams, doctors, totalCount, currentPage, pageSize]
+  );
+
+  // ── Input change handler (debounced) ────────────────────────────────────────
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!value.trim()) {
+      // Immediately restore server results when query is cleared
+      setDisplayDoctors(doctors);
+      setDisplayTotalCount(totalCount);
+      setDisplayPage(currentPage);
+      setDisplayTotalPages(Math.ceil(totalCount / pageSize));
+      return;
+    }
+
+    debounceRef.current = setTimeout(() => {
+      performSearch(value, 1);
+    }, 400);
+  };
+
+  // Cleanup debounce on unmount
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    []
+  );
+
+  // ── Submit: navigate to shareable URL ──────────────────────────────────────
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const url = buildSearchUrl(searchQuery, 1);
+    if (searchQuery.trim()) {
+      performSearch(searchQuery, 1); // immediate result update
+      router.push(url);             // also update URL for shareability
+    } else {
+      router.push("/doctors");
+    }
+  };
+
+  // ── Pagination: client-side when in search mode ─────────────────────────────
+  const handlePageChange = (page: number) => {
+    if (searchQuery.trim()) {
+      performSearch(searchQuery, page);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      router.push(buildPageUrl(page));
+    }
+  };
+
+  // ── URL builders ────────────────────────────────────────────────────────────
+  function buildSearchUrl(q: string, page = 1) {
     const p = new URLSearchParams();
+    if (q.trim()) p.set("q", q.trim());
     if (initialParams.specialization)
       p.set("specialization", initialParams.specialization);
     if (initialParams.city) p.set("city", initialParams.city);
@@ -88,12 +256,11 @@ export default function DoctorSearchClient({
     return `/doctors?${p.toString()}`;
   }
 
-  const doctorsWithLocations = doctors.filter(
-    (d) => d.clinic_location !== null
-  ) as (Doctor & {
-    clinic_location: { latitude: number; longitude: number };
-  })[];
+  function buildPageUrl(page: number) {
+    return buildSearchUrl(searchQuery, page);
+  }
 
+  // ── Derived ─────────────────────────────────────────────────────────────────
   const hasActiveFilters =
     initialParams.specialization ||
     initialParams.city ||
@@ -102,9 +269,18 @@ export default function DoctorSearchClient({
     initialParams.maxFee ||
     initialParams.language;
 
+  const isSearchMode = searchQuery.trim().length > 0;
+
+  const doctorsWithLocations = displayDoctors.filter(
+    (d) => d.clinic_location !== null
+  ) as (Doctor & { clinic_location: { latitude: number; longitude: number } })[];
+
+  // ── Filter panel (used in both desktop sidebar and mobile drawer) ───────────
   const FilterPanel = () => (
-    <form method="get" className="space-y-4">
+    <form method="get" action="/doctors" className="space-y-4">
       <input type="hidden" name="page" value="1" />
+      {/* Preserve current search query when applying filters */}
+      {searchQuery && <input type="hidden" name="q" value={searchQuery} />}
 
       {[
         {
@@ -217,7 +393,7 @@ export default function DoctorSearchClient({
         Apply Filters
       </button>
 
-      {hasActiveFilters && (
+      {(hasActiveFilters || isSearchMode) && (
         <Link
           href="/doctors"
           className="flex w-full items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-all hover:bg-gray-50"
@@ -226,15 +402,17 @@ export default function DoctorSearchClient({
             color: "var(--text-dark)",
           }}
         >
-          <X size={13} /> Clear Filters
+          <X size={13} /> Clear All
         </Link>
       )}
     </form>
   );
 
+  // ─────────────────────────────────────────────────────────────────────────────
+
   return (
     <div className="flex gap-6">
-      {/* Desktop sidebar */}
+      {/* ── Desktop sidebar ─────────────────────────────────────────────────── */}
       <aside className="hidden w-60 shrink-0 lg:block">
         <div
           className="sticky top-20 rounded-2xl bg-white p-5"
@@ -248,7 +426,7 @@ export default function DoctorSearchClient({
             >
               Filters
             </p>
-            {hasActiveFilters && (
+            {(hasActiveFilters || isSearchMode) && (
               <span
                 className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold"
                 style={{
@@ -264,7 +442,7 @@ export default function DoctorSearchClient({
         </div>
       </aside>
 
-      {/* Mobile filter drawer */}
+      {/* ── Mobile filter drawer ─────────────────────────────────────────────── */}
       {mobileFiltersOpen && (
         <>
           <div
@@ -294,9 +472,102 @@ export default function DoctorSearchClient({
         </>
       )}
 
-      {/* Results */}
+      {/* ── Results area ─────────────────────────────────────────────────────── */}
       <div className="min-w-0 flex-1">
-        {/* Toolbar */}
+
+        {/* ── Search bar ──────────────────────────────────────────────────────── */}
+        <form onSubmit={handleSearchSubmit} className="mb-5">
+          <div className="relative">
+            {/* Left icon */}
+            <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center">
+              {isSearching ? (
+                <Loader2
+                  size={17}
+                  className="animate-spin"
+                  style={{ color: "var(--primary)" }}
+                />
+              ) : (
+                <Search size={17} className="text-gray-400" />
+              )}
+            </div>
+
+            <input
+              ref={inputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSearchSubmit();
+                }
+              }}
+              placeholder="Search by name, specialty, or condition…"
+              className="w-full rounded-2xl border py-3.5 pr-24 pl-12 text-sm shadow-sm transition focus:outline-none focus:ring-2"
+              style={{
+                borderColor: searchQuery
+                  ? "var(--primary)"
+                  : "var(--primary-light)",
+                color: "var(--text-dark)",
+                background: "white",
+              }}
+            />
+
+            {/* Right: clear + search button */}
+            <div className="absolute inset-y-0 right-2 flex items-center gap-1">
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => handleSearchChange("")}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100"
+                  title="Clear search"
+                >
+                  <X size={13} />
+                </button>
+              )}
+              <button
+                type="submit"
+                className="rounded-xl px-3 py-1.5 text-xs font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--primary), var(--accent))",
+                }}
+              >
+                Search
+              </button>
+            </div>
+          </div>
+
+          {/* Search status line */}
+          {isSearchMode && (
+            <p className="mt-2 text-xs text-gray-500">
+              {isSearching ? (
+                <span style={{ color: "var(--primary)" }}>Searching…</span>
+              ) : (
+                <>
+                  <span
+                    className="font-semibold"
+                    style={{ color: "var(--text-dark)" }}
+                  >
+                    {displayTotalCount}
+                  </span>{" "}
+                  result{displayTotalCount !== 1 ? "s" : ""} for{" "}
+                  <span
+                    className="font-medium"
+                    style={{ color: "var(--primary)" }}
+                  >
+                    &ldquo;{searchQuery}&rdquo;
+                  </span>
+                  {(hasActiveFilters) && (
+                    <span className="text-gray-400"> · with active filters</span>
+                  )}
+                </>
+              )}
+            </p>
+          )}
+        </form>
+
+        {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
         <div className="mb-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
@@ -308,7 +579,7 @@ export default function DoctorSearchClient({
               }}
             >
               <Filter size={13} /> Filters
-              {hasActiveFilters && (
+              {(hasActiveFilters || isSearchMode) && (
                 <span
                   className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
                   style={{ background: "var(--primary)", color: "white" }}
@@ -317,21 +588,25 @@ export default function DoctorSearchClient({
                 </span>
               )}
             </button>
-            <p className="text-sm text-gray-500">
-              <span
-                className="font-semibold"
-                style={{ color: "var(--text-dark)" }}
-              >
-                {totalCount}
-              </span>{" "}
-              doctor{totalCount !== 1 ? "s" : ""} found
-              {totalPages > 1 && (
-                <span className="text-gray-400">
-                  {" "}
-                  · Page {currentPage} of {totalPages}
-                </span>
-              )}
-            </p>
+
+            {/* Count — only shown when not in search mode (search has its own count) */}
+            {!isSearchMode && (
+              <p className="text-sm text-gray-500">
+                <span
+                  className="font-semibold"
+                  style={{ color: "var(--text-dark)" }}
+                >
+                  {displayTotalCount}
+                </span>{" "}
+                doctor{displayTotalCount !== 1 ? "s" : ""} found
+                {displayTotalPages > 1 && (
+                  <span className="text-gray-400">
+                    {" "}
+                    · Page {displayPage} of {displayTotalPages}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
 
           {/* View toggle */}
@@ -366,7 +641,7 @@ export default function DoctorSearchClient({
           </div>
         </div>
 
-        {/* Active filter chips */}
+        {/* ── Active filter chips ──────────────────────────────────────────────── */}
         {hasActiveFilters && (
           <div className="mb-4 flex flex-wrap gap-2">
             {[
@@ -403,7 +678,7 @@ export default function DoctorSearchClient({
           </div>
         )}
 
-        {/* Map view */}
+        {/* ── Map view ─────────────────────────────────────────────────────────── */}
         {viewMode === "map" ? (
           doctorsWithLocations.length > 0 ? (
             <div
@@ -439,10 +714,10 @@ export default function DoctorSearchClient({
             </div>
           )
         ) : (
-          /* List view */
+          /* ── List view ──────────────────────────────────────────────────────── */
           <div className="space-y-4">
-            {doctors.length > 0 ? (
-              doctors.map((doc) => (
+            {displayDoctors.length > 0 ? (
+              displayDoctors.map((doc) => (
                 <div
                   key={doc.id}
                   className="group overflow-hidden rounded-2xl bg-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
@@ -467,13 +742,20 @@ export default function DoctorSearchClient({
                             className="font-display text-base font-bold"
                             style={{ color: "var(--text-dark)" }}
                           >
-                            Dr. {doc.full_name}
+                            Dr.{" "}
+                            <Highlight
+                              text={doc.full_name}
+                              query={searchQuery}
+                            />
                           </h3>
                           <p
                             className="text-sm"
                             style={{ color: "var(--accent)" }}
                           >
-                            {doc.specialization}
+                            <Highlight
+                              text={doc.specialization}
+                              query={searchQuery}
+                            />
                           </p>
                           <p className="mt-0.5 text-xs text-gray-400">
                             {doc.qualification} · {doc.experience} yrs exp
@@ -509,7 +791,7 @@ export default function DoctorSearchClient({
                             size={11}
                             style={{ color: "var(--primary)" }}
                           />
-                          {doc.city}
+                          <Highlight text={doc.city} query={searchQuery} />
                         </span>
                         <span className="flex items-center gap-1 text-xs text-gray-500">
                           <Languages
@@ -522,7 +804,7 @@ export default function DoctorSearchClient({
 
                       {doc.bio && (
                         <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-gray-400">
-                          {doc.bio}
+                          <Highlight text={doc.bio} query={searchQuery} />
                         </p>
                       )}
 
@@ -553,6 +835,7 @@ export default function DoctorSearchClient({
                 </div>
               ))
             ) : (
+              /* Empty state */
               <div
                 className="flex flex-col items-center justify-center rounded-2xl bg-white py-16 text-center"
                 style={{ border: "1px solid var(--primary-light)" }}
@@ -561,16 +844,20 @@ export default function DoctorSearchClient({
                   className="mb-4 flex h-14 w-14 items-center justify-center rounded-full"
                   style={{ background: "var(--primary-light)" }}
                 >
-                  <Stethoscope size={22} style={{ color: "var(--primary)" }} />
+                  <Search size={22} style={{ color: "var(--primary)" }} />
                 </div>
                 <p
                   className="text-sm font-semibold"
                   style={{ color: "var(--text-dark)" }}
                 >
-                  No doctors found
+                  {isSearchMode
+                    ? `No doctors found for "${searchQuery}"`
+                    : "No doctors found"}
                 </p>
                 <p className="mt-1 text-xs text-gray-400">
-                  Try adjusting your filters
+                  {isSearchMode
+                    ? "Try a different name, specialty, or symptom"
+                    : "Try adjusting your filters"}
                 </p>
                 <Link
                   href="/doctors"
@@ -587,33 +874,27 @@ export default function DoctorSearchClient({
           </div>
         )}
 
-        {/* Pagination */}
-        {totalPages > 1 && viewMode === "list" && (
+        {/* ── Pagination ────────────────────────────────────────────────────────── */}
+        {displayTotalPages > 1 && viewMode === "list" && (
           <div className="mt-8 flex items-center justify-center gap-1.5">
-            <Link
-              href={buildPageUrl(currentPage - 1)}
-              aria-disabled={currentPage <= 1}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border transition-all hover:bg-white"
-              style={
-                currentPage <= 1
-                  ? {
-                      borderColor: "var(--primary-light)",
-                      color: "#d1d5db",
-                      pointerEvents: "none",
-                    }
-                  : {
-                      borderColor: "var(--primary-light)",
-                      color: "var(--text-dark)",
-                    }
-              }
+            <button
+              onClick={() => handlePageChange(displayPage - 1)}
+              disabled={displayPage <= 1}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border transition-all hover:bg-white disabled:pointer-events-none"
+              style={{
+                borderColor: "var(--primary-light)",
+                color: displayPage <= 1 ? "#d1d5db" : "var(--text-dark)",
+              }}
             >
               <ChevronLeft size={15} />
-            </Link>
+            </button>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
+            {Array.from({ length: displayTotalPages }, (_, i) => i + 1)
               .filter(
                 (p) =>
-                  p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2
+                  p === 1 ||
+                  p === displayTotalPages ||
+                  Math.abs(p - displayPage) <= 2
               )
               .reduce<(number | "...")[]>((acc, p, idx, arr) => {
                 if (idx > 0 && p - (arr[idx - 1] as number) > 1)
@@ -630,12 +911,12 @@ export default function DoctorSearchClient({
                     …
                   </span>
                 ) : (
-                  <Link
+                  <button
                     key={item}
-                    href={buildPageUrl(item as number)}
+                    onClick={() => handlePageChange(item as number)}
                     className="flex h-9 w-9 items-center justify-center rounded-xl border text-xs font-semibold transition-all"
                     style={
-                      item === currentPage
+                      item === displayPage
                         ? {
                             background:
                               "linear-gradient(135deg, var(--primary), var(--accent))",
@@ -649,29 +930,24 @@ export default function DoctorSearchClient({
                     }
                   >
                     {item}
-                  </Link>
+                  </button>
                 )
               )}
 
-            <Link
-              href={buildPageUrl(currentPage + 1)}
-              aria-disabled={currentPage >= totalPages}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border transition-all hover:bg-white"
-              style={
-                currentPage >= totalPages
-                  ? {
-                      borderColor: "var(--primary-light)",
-                      color: "#d1d5db",
-                      pointerEvents: "none",
-                    }
-                  : {
-                      borderColor: "var(--primary-light)",
-                      color: "var(--text-dark)",
-                    }
-              }
+            <button
+              onClick={() => handlePageChange(displayPage + 1)}
+              disabled={displayPage >= displayTotalPages}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border transition-all hover:bg-white disabled:pointer-events-none"
+              style={{
+                borderColor: "var(--primary-light)",
+                color:
+                  displayPage >= displayTotalPages
+                    ? "#d1d5db"
+                    : "var(--text-dark)",
+              }}
             >
               <ChevronRight size={15} />
-            </Link>
+            </button>
           </div>
         )}
       </div>

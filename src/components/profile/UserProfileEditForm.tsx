@@ -5,8 +5,19 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import FileUpload from "@/components/upload/FileUpload";
 import TagInput from "@/components/ui/TagInput";
-import { Activity } from "lucide-react";
 import AddressInput from "@/components/ui/AddressInput";
+import {
+  User,
+  Phone,
+  Mail,
+  CalendarDays,
+  Heart,
+  Activity,
+  MapPin,
+  ImageIcon,
+  ShieldCheck,
+  Loader2,
+} from "lucide-react";
 
 interface User {
   id: string;
@@ -21,6 +32,7 @@ interface User {
   has_high_blood_pressure: boolean;
   diseases: string[];
   country: string | null;
+  state: string | null;
   city: string | null;
   area: string | null;
   street: string | null;
@@ -28,20 +40,48 @@ interface User {
   zip_code: string | null;
 }
 
+const CARD = "overflow-hidden rounded-2xl bg-white";
+const CARD_STYLE = { border: "1px solid var(--primary-light)" };
+const LABEL = "mb-1.5 block text-xs font-semibold uppercase tracking-wide";
+const LABEL_STYLE = { color: "var(--text-dark)" };
+const INPUT =
+  "w-full rounded-xl border px-4 py-3 text-sm transition focus:outline-none";
+const INPUT_STYLE = {
+  borderColor: "var(--primary-light)",
+  color: "var(--text-dark)",
+};
+
+function SectionHeader({ icon: Icon, label }: { icon: any; label: string }) {
+  return (
+    <div
+      className="flex items-center gap-2 border-b px-6 py-4"
+      style={{ borderColor: "var(--primary-light)" }}
+    >
+      <Icon size={15} style={{ color: "var(--primary)" }} />
+      <p
+        className="text-xs font-semibold tracking-widest uppercase"
+        style={{ color: "var(--accent)" }}
+      >
+        {label}
+      </p>
+    </div>
+  );
+}
+
 export default function UserProfileEditForm({ user }: { user: User }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [profilePhotoUrl, setProfilePhotoUrl] = useState(user.profile_photo || "");
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(
+    user.profile_photo || ""
+  );
   const [diseases, setDiseases] = useState<string[]>(user.diseases || []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-
     const formData = new FormData(e.currentTarget);
-
     try {
-      const response = await fetch("/api/user/profile", {
+      const res = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -53,8 +93,9 @@ export default function UserProfileEditForm({ user }: { user: User }) {
           maritalStatus: formData.get("maritalStatus"),
           hasDiabetes: formData.get("hasDiabetes") === "on",
           hasHighBloodPressure: formData.get("hasHighBloodPressure") === "on",
-          diseases: diseases,
+          diseases,
           country: formData.get("address_country"),
+          state: formData.get("address_state"),
           city: formData.get("address_city"),
           area: formData.get("address_area"),
           street: formData.get("address_street"),
@@ -62,15 +103,10 @@ export default function UserProfileEditForm({ user }: { user: User }) {
           zipCode: formData.get("address_zipCode"),
         }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update profile");
-      }
-
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update profile");
       toast.success("Profile updated successfully");
-      router.push("/profile");
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -79,11 +115,11 @@ export default function UserProfileEditForm({ user }: { user: User }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 text-black">
-      {/* Profile Photo */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-gray-900">Profile Photo</h3>
-        <div className="mt-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Profile photo */}
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={ImageIcon} label="Profile Photo" />
+        <div className="p-6">
           <FileUpload
             label="Your Photo"
             type="profile_photo"
@@ -94,59 +130,72 @@ export default function UserProfileEditForm({ user }: { user: User }) {
         </div>
       </div>
 
-      {/* Personal Information */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+      {/* Personal */}
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={User} label="Personal Information" />
+        <div className="grid grid-cols-1 gap-5 p-6 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Full Name</label>
+            <label className={LABEL} style={LABEL_STYLE}>
+              Full Name
+            </label>
             <input
               type="text"
               name="fullName"
               defaultValue={user.full_name}
               required
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+            <label className={LABEL} style={LABEL_STYLE}>
+              Phone Number
+            </label>
             <input
               type="tel"
               name="phone"
               defaultValue={user.phone}
               required
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label className={LABEL} style={LABEL_STYLE}>
+              Email
+            </label>
             <input
               type="email"
               value={user.email}
               disabled
-              className="mt-1 w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500"
+              className={`${INPUT} cursor-not-allowed opacity-60`}
+              style={{ ...INPUT_STYLE, background: "var(--bg-soft)" }}
             />
-            <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
+            <p className="mt-1 text-xs text-gray-400">
+              Email cannot be changed
+            </p>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+            <label className={LABEL} style={LABEL_STYLE}>
+              Date of Birth
+            </label>
             <input
               type="date"
               name="dateOfBirth"
               defaultValue={user.date_of_birth || ""}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700">Gender</label>
+            <label className={LABEL} style={LABEL_STYLE}>
+              Gender
+            </label>
             <select
               name="gender"
               defaultValue={user.gender || ""}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={INPUT}
+              style={INPUT_STYLE}
             >
               <option value="">Prefer not to say</option>
               <option value="male">Male</option>
@@ -154,13 +203,15 @@ export default function UserProfileEditForm({ user }: { user: User }) {
               <option value="other">Other</option>
             </select>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700">Marital Status</label>
+            <label className={LABEL} style={LABEL_STYLE}>
+              Marital Status
+            </label>
             <select
               name="maritalStatus"
               defaultValue={user.marital_status || ""}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className={INPUT}
+              style={INPUT_STYLE}
             >
               <option value="">Prefer not to say</option>
               <option value="single">Single</option>
@@ -172,100 +223,131 @@ export default function UserProfileEditForm({ user }: { user: User }) {
         </div>
       </div>
 
-      {/* Address Information */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Address Information</h3>
-        <AddressInput
-          defaultValues={{
-            country: user.country || undefined,
-            city: user.city || undefined,
-            area: user.area || undefined,
-            street: user.street || undefined,
-            houseNumber: user.house_number || undefined,
-            zipCode: user.zip_code || undefined,
-          }}
-          namePrefix="address"
-          required={false}
-        />
+      {/* Address */}
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={MapPin} label="Address Information" />
+        <div className="p-6">
+          <AddressInput
+            defaultValues={{
+              country: user.country || undefined,
+              state: user.state || undefined,
+              city: user.city || undefined,
+              area: user.area || undefined,
+              street: user.street || undefined,
+              houseNumber: user.house_number || undefined,
+              zipCode: user.zip_code || undefined,
+            }}
+            namePrefix="address"
+            required={false}
+          />
+        </div>
       </div>
 
-      {/* Medical Information */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-          <Activity className="h-5 w-5 text-blue-600" />
-          Medical Information
-        </h3>
-        <div className="space-y-4">
-          <div>
-            <label className="flex cursor-pointer items-center gap-2">
+      {/* Medical */}
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={Activity} label="Medical Information" />
+        <div className="space-y-5 p-6">
+          {[
+            {
+              name: "hasDiabetes",
+              label: "I have Diabetes",
+              checked: user.has_diabetes,
+            },
+            {
+              name: "hasHighBloodPressure",
+              label: "I have High Blood Pressure",
+              checked: user.has_high_blood_pressure,
+            },
+          ].map((item) => (
+            <label
+              key={item.name}
+              className="flex cursor-pointer items-center gap-3"
+            >
               <input
                 type="checkbox"
-                name="hasDiabetes"
-                defaultChecked={user.has_diabetes}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                name={item.name}
+                defaultChecked={item.checked}
+                className="rounded border-gray-300"
+                style={{ accentColor: "var(--primary)" }}
               />
-              <span className="text-sm font-medium text-gray-700">I have Diabetes</span>
+              <span
+                className="text-sm font-medium"
+                style={{ color: "var(--text-dark)" }}
+              >
+                {item.label}
+              </span>
             </label>
-          </div>
-
+          ))}
           <div>
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                name="hasHighBloodPressure"
-                defaultChecked={user.has_high_blood_pressure}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700">I have High Blood Pressure</span>
-            </label>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
+            <label className={`${LABEL} mb-2`} style={LABEL_STYLE}>
               Chronic Diseases
             </label>
             <TagInput
               value={diseases}
               onChange={setDiseases}
-              placeholder="Type disease name..."
-              suggestions={[
-                "Asthma",
-                "Arthritis",
-                "Cancer",
-                "Heart Disease",
-                "Kidney Disease",
-                "Liver Disease",
-                "Thyroid Disorder",
-                "Epilepsy",
-                "Migraine",
-                "Anemia",
-                "Allergies",
-                "COPD",
-                "Depression",
-                "Anxiety",
-                "Osteoporosis",
-              ]}
+              placeholder="Type disease name…"
               allowNone={true}
             />
           </div>
         </div>
       </div>
 
+      {/* Account info (read-only) */}
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={ShieldCheck} label="Account Information" />
+        <div
+          className="divide-y px-6"
+          style={{ borderColor: "var(--primary-light)" }}
+        >
+          {[
+            { label: "Account ID", value: user.id, mono: true },
+            { label: "Email", value: user.email, mono: false },
+          ].map((row) => (
+            <div
+              key={row.label}
+              className="flex items-center justify-between py-3"
+            >
+              <span className="text-xs text-gray-400">{row.label}</span>
+              <span
+                className={`text-sm font-medium ${row.mono ? "font-mono" : ""}`}
+                style={{ color: "var(--text-dark)" }}
+              >
+                {row.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Actions */}
-      <div className="flex justify-end gap-4">
+      <div className="flex justify-end gap-3 pb-4">
         <button
           type="button"
-          onClick={() => router.push("/profile")}
-          className="rounded-md border border-gray-300 px-6 py-2.5 text-gray-700 hover:bg-gray-50"
+          onClick={() => router.back()}
+          className="rounded-xl border px-6 py-3 text-sm font-semibold transition-all hover:bg-gray-50"
+          style={{
+            borderColor: "var(--primary-light)",
+            color: "var(--text-dark)",
+          }}
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="rounded-md bg-blue-600 px-6 py-2.5 text-white hover:bg-blue-700 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--primary), var(--accent))",
+          }}
         >
-          {loading ? "Saving..." : "Save Changes"}
+          {loading ? (
+            <>
+              <Loader2 size={14} className="animate-spin" /> Saving…
+            </>
+          ) : (
+            "Save Changes"
+          )}
         </button>
       </div>
     </form>

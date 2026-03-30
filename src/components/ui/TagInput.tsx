@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { X, ChevronDown } from "lucide-react";
+import { X, ChevronRight } from "lucide-react";
 import { searchDiseases } from "@/lib/diseases";
 
 interface TagInputProps {
@@ -14,7 +14,7 @@ interface TagInputProps {
 export default function TagInput({
   value,
   onChange,
-  placeholder = "Type to search...",
+  placeholder = "Type to search…",
   allowNone = false,
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState("");
@@ -26,9 +26,9 @@ export default function TagInput({
 
   useEffect(() => {
     if (inputValue.trim().length >= 2) {
-      const results = searchDiseases(inputValue);
-      // Filter out already selected tags
-      const filtered = results.filter((s) => !value.includes(s));
+      const filtered = searchDiseases(inputValue).filter(
+        (s) => !value.includes(s)
+      );
       setSuggestions(filtered);
       setShowDropdown(filtered.length > 0);
       setHighlightedIndex(0);
@@ -38,29 +38,33 @@ export default function TagInput({
     }
   }, [inputValue, value]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent) => {
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
+        !dropdownRef.current.contains(e.target as Node) &&
         inputRef.current &&
-        !inputRef.current.contains(event.target as Node)
-      ) {
+        !inputRef.current.contains(e.target as Node)
+      )
         setShowDropdown(false);
-      }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (dropdownRef.current) {
+      const el = dropdownRef.current.querySelector(
+        `[data-index="${highlightedIndex}"]`
+      );
+      el?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightedIndex]);
+
   const addTag = (tag: string) => {
-    const trimmedTag = tag.trim();
-    if (trimmedTag && !value.includes(trimmedTag)) {
-      // Remove "None" if adding a disease
-      const newTags = value.filter((t) => t !== "None");
-      onChange([...newTags, trimmedTag]);
+    const t = tag.trim();
+    if (t && !value.includes(t)) {
+      onChange([...value.filter((v) => v !== "None"), t]);
       setInputValue("");
       setShowDropdown(false);
       setSuggestions([]);
@@ -68,95 +72,73 @@ export default function TagInput({
     }
   };
 
-  const removeTag = (tagToRemove: string) => {
-    onChange(value.filter((tag) => tag !== tagToRemove));
-  };
+  const removeTag = (tag: string) => onChange(value.filter((v) => v !== tag));
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightedIndex((prev) =>
-        prev < suggestions.length - 1 ? prev + 1 : prev
-      );
+      setHighlightedIndex((p) => Math.min(p + 1, suggestions.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+      setHighlightedIndex((p) => Math.max(p - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (showDropdown && suggestions.length > 0) {
+      if (showDropdown && suggestions[highlightedIndex])
         addTag(suggestions[highlightedIndex]);
-      }
-    } else if (e.key === "Escape") {
-      setShowDropdown(false);
-    } else if (e.key === "Backspace" && !inputValue && value.length > 0) {
+    } else if (e.key === "Escape") setShowDropdown(false);
+    else if (e.key === "Backspace" && !inputValue && value.length > 0)
       removeTag(value[value.length - 1]);
-    }
   };
 
-  const handleSelectSuggestion = (suggestion: string) => {
-    addTag(suggestion);
-  };
-
-  const toggleNone = () => {
-    if (value.includes("None")) {
-      onChange([]);
-    } else {
-      onChange(["None"]);
-    }
-  };
-
-  // Scroll highlighted item into view
-  useEffect(() => {
-    if (dropdownRef.current) {
-      const highlighted = dropdownRef.current.querySelector(
-        `[data-index="${highlightedIndex}"]`
-      );
-      if (highlighted) {
-        highlighted.scrollIntoView({ block: "nearest" });
-      }
-    }
-  }, [highlightedIndex]);
+  const toggleNone = () =>
+    value.includes("None") ? onChange([]) : onChange(["None"]);
 
   return (
     <div className="relative">
-      <div className="min-h-[42px] w-full rounded-lg border border-gray-300 bg-white p-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+      {/* Input box */}
+      <div
+        className="min-h-[46px] w-full rounded-xl border p-2 transition"
+        style={{ borderColor: "var(--primary-light)", background: "white" }}
+      >
         <div className="flex flex-wrap gap-2">
           {value.map((tag) => (
             <span
               key={tag}
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${
+              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold"
+              style={
                 tag === "None"
-                  ? "bg-gray-200 text-gray-700"
-                  : "bg-blue-100 text-blue-700"
-              }`}
+                  ? { background: "#f3f4f6", color: "#6b7280" }
+                  : {
+                      background: "var(--primary-light)",
+                      color: "var(--primary)",
+                    }
+              }
             >
               {tag}
               <button
                 type="button"
                 onClick={() => removeTag(tag)}
-                className="hover:text-blue-900 focus:outline-none"
+                className="hover:opacity-70 focus:outline-none"
               >
-                <X className="h-3 w-3" />
+                <X size={11} />
               </button>
             </span>
           ))}
-          <div className="relative min-w-[150px] flex-1">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={() => {
-                if (inputValue.trim().length >= 2 && suggestions.length > 0) {
-                  setShowDropdown(true);
-                }
-              }}
-              placeholder={value.length === 0 ? placeholder : ""}
-              disabled={value.includes("None")}
-              className="w-full border-none bg-transparent px-1 text-sm outline-none disabled:cursor-not-allowed"
-            />
-          </div>
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => {
+              if (inputValue.trim().length >= 2 && suggestions.length > 0)
+                setShowDropdown(true);
+            }}
+            placeholder={value.length === 0 ? placeholder : ""}
+            disabled={value.includes("None")}
+            className="min-w-[140px] flex-1 border-none bg-transparent px-1 text-sm outline-none disabled:cursor-not-allowed"
+            style={{ color: "var(--text-dark)" }}
+          />
         </div>
       </div>
 
@@ -164,53 +146,76 @@ export default function TagInput({
       {showDropdown && suggestions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-300 bg-white shadow-lg"
+          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-2xl bg-white shadow-xl"
+          style={{ border: "1px solid var(--primary-light)" }}
         >
-          {suggestions.map((suggestion, index) => (
+          {suggestions.map((s, i) => (
             <button
-              key={suggestion}
+              key={s}
               type="button"
-              data-index={index}
-              onClick={() => handleSelectSuggestion(suggestion)}
-              onMouseEnter={() => setHighlightedIndex(index)}
-              className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors ${
-                index === highlightedIndex
-                  ? "bg-blue-50 text-blue-900"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
+              data-index={i}
+              onClick={() => addTag(s)}
+              onMouseEnter={() => setHighlightedIndex(i)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors"
+              style={
+                i === highlightedIndex
+                  ? {
+                      background: "var(--primary-light)",
+                      color: "var(--primary)",
+                    }
+                  : { color: "var(--text-dark)" }
+              }
             >
-              <ChevronDown className="h-4 w-4 flex-shrink-0 text-blue-600" />
-              <span className="flex-1">{suggestion}</span>
-              {index === highlightedIndex && (
-                <span className="text-xs text-blue-600">Press Enter</span>
+              <ChevronRight
+                size={13}
+                style={{ color: "var(--accent)", flexShrink: 0 }}
+              />
+              <span className="flex-1">{s}</span>
+              {i === highlightedIndex && (
+                <span
+                  className="text-[10px] font-semibold"
+                  style={{ color: "var(--primary)" }}
+                >
+                  Enter
+                </span>
               )}
             </button>
           ))}
         </div>
       )}
 
-      {/* Helper Text */}
-      <p className="mt-1 text-xs text-gray-500">
-        Type at least 2 characters to search. Use ↑↓ arrows to navigate, Enter
-        to select
+      {/* Helper */}
+      <p className="mt-1 text-xs text-gray-400">
+        Type at least 2 characters to search. Use ↑↓ to navigate, Enter to
+        select.
       </p>
 
-      {/* None Option */}
+      {/* None toggle */}
       {allowNone && (
         <button
           type="button"
           onClick={toggleNone}
-          className={`mt-2 flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+          className="mt-2 flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all"
+          style={
             value.includes("None")
-              ? "border-gray-400 bg-gray-100 text-gray-700"
-              : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-          }`}
+              ? {
+                  background: "#f3f4f6",
+                  borderColor: "#d1d5db",
+                  color: "#6b7280",
+                }
+              : {
+                  background: "white",
+                  borderColor: "var(--primary-light)",
+                  color: "var(--text-dark)",
+                }
+          }
         >
           <input
             type="checkbox"
             checked={value.includes("None")}
             onChange={toggleNone}
             className="rounded border-gray-300"
+            style={{ accentColor: "var(--primary)" }}
           />
           I don't have any chronic diseases
         </button>

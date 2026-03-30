@@ -78,3 +78,13 @@ export interface ChatApiResponse {
   };
   error?: string;
 }
+
+export interface LLMResponse {
+  intent: string;
+  symptoms?: string[];
+  specialty?: string | null;
+  needs_clarification?: boolean;
+  collected?: { name?: string | null; phone?: string | null };
+  all_collected?: boolean;
+  response: string;
+}

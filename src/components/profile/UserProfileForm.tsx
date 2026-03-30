@@ -5,8 +5,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import FileUpload from "@/components/upload/FileUpload";
 import TagInput from "@/components/ui/TagInput";
-import { Activity } from "lucide-react";
 import AddressInput from "@/components/ui/AddressInput";
+import {
+  User,
+  Activity,
+  MapPin,
+  ImageIcon,
+  ShieldCheck,
+  Loader2,
+} from "lucide-react";
 
 interface User {
   id: string;
@@ -29,6 +36,34 @@ interface User {
   zip_code: string | null;
 }
 
+const CARD = "overflow-hidden rounded-2xl bg-white";
+const CARD_STYLE = { border: "1px solid var(--primary-light)" };
+const LABEL = "mb-1.5 block text-xs font-semibold uppercase tracking-wide";
+const LABEL_STYLE = { color: "var(--text-dark)" };
+const INPUT =
+  "w-full rounded-xl border px-4 py-3 text-sm transition focus:outline-none";
+const INPUT_STYLE = {
+  borderColor: "var(--primary-light)",
+  color: "var(--text-dark)",
+};
+
+function SectionHeader({ icon: Icon, label }: { icon: any; label: string }) {
+  return (
+    <div
+      className="flex items-center gap-2 border-b px-6 py-4"
+      style={{ borderColor: "var(--primary-light)" }}
+    >
+      <Icon size={15} style={{ color: "var(--primary)" }} />
+      <p
+        className="text-xs font-semibold tracking-widest uppercase"
+        style={{ color: "var(--accent)" }}
+      >
+        {label}
+      </p>
+    </div>
+  );
+}
+
 export default function ProfileForm({ user }: { user: User }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -40,11 +75,9 @@ export default function ProfileForm({ user }: { user: User }) {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-
     const formData = new FormData(e.currentTarget);
-
     try {
-      const response = await fetch("/api/user/profile", {
+      const res = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -56,8 +89,7 @@ export default function ProfileForm({ user }: { user: User }) {
           maritalStatus: formData.get("maritalStatus"),
           hasDiabetes: formData.get("hasDiabetes") === "on",
           hasHighBloodPressure: formData.get("hasHighBloodPressure") === "on",
-          diseases: diseases,
-          // Address fields
+          diseases,
           country: formData.get("address_country"),
           state: formData.get("address_state"),
           city: formData.get("address_city"),
@@ -67,13 +99,8 @@ export default function ProfileForm({ user }: { user: User }) {
           zipCode: formData.get("address_zipCode"),
         }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update profile");
-      }
-
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update profile");
       toast.success("Profile updated successfully");
       router.refresh();
     } catch (err) {
@@ -84,11 +111,10 @@ export default function ProfileForm({ user }: { user: User }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-8 space-y-6 text-black">
-      {/* Profile Photo */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-black">Profile Photo</h3>
-        <div className="mt-4">
+    <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={ImageIcon} label="Profile Photo" />
+        <div className="p-6">
           <FileUpload
             label="Your Photo"
             type="profile_photo"
@@ -99,14 +125,11 @@ export default function ProfileForm({ user }: { user: User }) {
         </div>
       </div>
 
-      {/* Personal Information */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-black">
-          Personal Information
-        </h3>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={User} label="Personal Information" />
+        <div className="grid grid-cols-1 gap-5 p-6 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-black">
+            <label className={LABEL} style={LABEL_STYLE}>
               Full Name
             </label>
             <input
@@ -114,12 +137,12 @@ export default function ProfileForm({ user }: { user: User }) {
               name="fullName"
               defaultValue={user.full_name}
               required
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-black"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-black">
+            <label className={LABEL} style={LABEL_STYLE}>
               Phone Number
             </label>
             <input
@@ -127,45 +150,46 @@ export default function ProfileForm({ user }: { user: User }) {
               name="phone"
               defaultValue={user.phone}
               required
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-black"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-black">
+            <label className={LABEL} style={LABEL_STYLE}>
               Email
             </label>
             <input
               type="email"
               value={user.email}
               disabled
-              className="mt-1 w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-black"
+              className={`${INPUT} cursor-not-allowed opacity-60`}
+              style={{ ...INPUT_STYLE, background: "var(--bg-soft)" }}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-gray-400">
               Email cannot be changed
             </p>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-black">
+            <label className={LABEL} style={LABEL_STYLE}>
               Date of Birth
             </label>
             <input
               type="date"
               name="dateOfBirth"
               defaultValue={user.date_of_birth || ""}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-black"
+              className={INPUT}
+              style={INPUT_STYLE}
             />
           </div>
-
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-black">
+          <div>
+            <label className={LABEL} style={LABEL_STYLE}>
               Gender
             </label>
             <select
               name="gender"
               defaultValue={user.gender || ""}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-black"
+              className={INPUT}
+              style={INPUT_STYLE}
             >
               <option value="">Prefer not to say</option>
               <option value="male">Male</option>
@@ -173,45 +197,15 @@ export default function ProfileForm({ user }: { user: User }) {
               <option value="other">Other</option>
             </select>
           </div>
-        </div>
-      </div>
-
-      {/* Address Information */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-black">
-          Address Information
-        </h3>
-        <AddressInput
-          defaultValues={{
-            country: user.country || undefined,
-            state: user.state || undefined,
-            city: user.city || undefined,
-            area: user.area || undefined,
-            street: user.street || undefined,
-            houseNumber: user.house_number || undefined,
-            zipCode: user.zip_code || undefined,
-          }}
-          namePrefix="address"
-          required={false}
-        />
-      </div>
-
-      {/* Medical Information */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="flex items-center gap-2 text-lg font-semibold text-black">
-          <Activity className="h-5 w-5 text-blue-600" />
-          Medical Information
-        </h3>
-        <div className="mt-4 space-y-4">
-          {/* Marital Status */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-black">
+            <label className={LABEL} style={LABEL_STYLE}>
               Marital Status
             </label>
             <select
               name="maritalStatus"
               defaultValue={user.marital_status || ""}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-black focus:ring-2 focus:ring-blue-500"
+              className={INPUT}
+              style={INPUT_STYLE}
             >
               <option value="">Prefer not to say</option>
               <option value="single">Single</option>
@@ -220,101 +214,130 @@ export default function ProfileForm({ user }: { user: User }) {
               <option value="widowed">Widowed</option>
             </select>
           </div>
+        </div>
+      </div>
 
-          {/* Diabetes */}
-          <div>
-            <label className="flex cursor-pointer items-center gap-2">
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={MapPin} label="Address Information" />
+        <div className="p-6">
+          <AddressInput
+            defaultValues={{
+              country: user.country || undefined,
+              state: user.state || undefined,
+              city: user.city || undefined,
+              area: user.area || undefined,
+              street: user.street || undefined,
+              houseNumber: user.house_number || undefined,
+              zipCode: user.zip_code || undefined,
+            }}
+            namePrefix="address"
+            required={false}
+          />
+        </div>
+      </div>
+
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={Activity} label="Medical Information" />
+        <div className="space-y-5 p-6">
+          {[
+            {
+              name: "hasDiabetes",
+              label: "I have Diabetes",
+              checked: user.has_diabetes,
+            },
+            {
+              name: "hasHighBloodPressure",
+              label: "I have High Blood Pressure",
+              checked: user.has_high_blood_pressure,
+            },
+          ].map((item) => (
+            <label
+              key={item.name}
+              className="flex cursor-pointer items-center gap-3"
+            >
               <input
                 type="checkbox"
-                name="hasDiabetes"
-                defaultChecked={user.has_diabetes}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                name={item.name}
+                defaultChecked={item.checked}
+                className="rounded border-gray-300"
+                style={{ accentColor: "var(--primary)" }}
               />
-              <span className="text-sm font-medium text-black">
-                I have Diabetes
+              <span
+                className="text-sm font-medium"
+                style={{ color: "var(--text-dark)" }}
+              >
+                {item.label}
               </span>
             </label>
-          </div>
-
-          {/* High Blood Pressure */}
+          ))}
           <div>
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                name="hasHighBloodPressure"
-                defaultChecked={user.has_high_blood_pressure}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-black">
-                I have High Blood Pressure
-              </span>
-            </label>
-          </div>
-
-          {/* Diseases */}
-          <div>
-            <label className="mb-2 block text-sm font-medium text-black">
+            <label className={`${LABEL} mb-2`} style={LABEL_STYLE}>
               Chronic Diseases
             </label>
             <TagInput
               value={diseases}
               onChange={setDiseases}
-              placeholder="Type disease name..."
-              suggestions={[
-                "Asthma",
-                "Arthritis",
-                "Cancer",
-                "Heart Disease",
-                "Kidney Disease",
-                "Liver Disease",
-                "Thyroid Disorder",
-                "Epilepsy",
-                "Migraine",
-                "Anemia",
-                "Allergies",
-                "COPD",
-                "Depression",
-                "Anxiety",
-                "Osteoporosis",
-              ]}
+              placeholder="Type disease name…"
               allowNone={true}
             />
           </div>
         </div>
       </div>
 
-      {/* Account Information */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-black">
-          Account Information
-        </h3>
-        <div className="mt-4 space-y-3 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Account ID:</span>
-            <span className="font-mono text-gray-900">{user.id}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Email:</span>
-            <span className="text-gray-900">{user.email}</span>
-          </div>
+      <div className={CARD} style={CARD_STYLE}>
+        <SectionHeader icon={ShieldCheck} label="Account Information" />
+        <div
+          className="divide-y px-6"
+          style={{ borderColor: "var(--primary-light)" }}
+        >
+          {[
+            { label: "Account ID", value: user.id, mono: true },
+            { label: "Email", value: user.email, mono: false },
+          ].map((row) => (
+            <div
+              key={row.label}
+              className="flex items-center justify-between py-3"
+            >
+              <span className="text-xs text-gray-400">{row.label}</span>
+              <span
+                className={`text-sm font-medium ${row.mono ? "font-mono" : ""}`}
+                style={{ color: "var(--text-dark)" }}
+              >
+                {row.value}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Submit */}
-      <div className="flex justify-end gap-4">
+      <div className="flex justify-end gap-3 pb-4">
         <button
           type="button"
           onClick={() => router.back()}
-          className="rounded-md border border-gray-300 px-6 py-3 text-gray-700 hover:bg-gray-50"
+          className="rounded-xl border px-6 py-3 text-sm font-semibold transition-all hover:bg-gray-50"
+          style={{
+            borderColor: "var(--primary-light)",
+            color: "var(--text-dark)",
+          }}
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="rounded-md bg-blue-600 px-6 py-3 text-white hover:bg-blue-700 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--primary), var(--accent))",
+          }}
         >
-          {loading ? "Saving..." : "Save Changes"}
+          {loading ? (
+            <>
+              <Loader2 size={14} className="animate-spin" /> Saving…
+            </>
+          ) : (
+            "Save Changes"
+          )}
         </button>
       </div>
     </form>

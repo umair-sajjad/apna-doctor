@@ -5,6 +5,7 @@ import UserNavbar from "@/components/shared/UserNavbar";
 const PAGE_SIZE = 9;
 
 interface SearchParams {
+  q?: string;
   specialization?: string;
   city?: string;
   gender?: string;
@@ -30,46 +31,32 @@ export default async function DoctorsPage({
   const supabase = await createClient();
 
   const currentPage = Math.max(1, parseInt(params.page || "1", 10));
-  const from = (currentPage - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const offset = (currentPage - 1) * PAGE_SIZE;
 
-  let query = supabase
-    .from("doctors")
-    .select("*", { count: "exact" })
-    .eq("is_verified", true)
-    .eq("is_active", true);
+  // Use the search_doctors RPC for consistent ranking between SSR and live search
+  const { data: rpcData, error } = await supabase.rpc("search_doctors", {
+    p_query: params.q?.trim() ?? "",
+    p_spec: params.specialization || null,
+    p_city: params.city || null,
+    p_gender: params.gender || null,
+    p_min_rating: params.minRating ? parseFloat(params.minRating) : null,
+    p_max_fee: params.maxFee ? parseInt(params.maxFee, 10) : null,
+    p_language: params.language || null,
+    p_sort_by: params.sortBy || "rating",
+    p_offset: offset,
+    p_limit: PAGE_SIZE,
+  });
 
-  if (params.specialization)
-    query = query.eq("specialization", params.specialization);
-  if (params.city) query = query.eq("city", params.city);
-  if (params.gender) query = query.eq("gender", params.gender);
-  if (params.minRating)
-    query = query.gte("average_rating", parseFloat(params.minRating));
-  if (params.maxFee)
-    query = query.lte("consultation_fee", parseInt(params.maxFee));
-  if (params.language) query = query.contains("languages", [params.language]);
+  const count = Number((rpcData as any[])?.[0]?.total_count ?? 0);
+  const rawDoctors = (rpcData ?? []).map(({ total_count: _tc, ...doc }: any) => doc);
 
-  const sortBy = params.sortBy || "rating";
-  if (sortBy === "rating")
-    query = query.order("average_rating", { ascending: false });
-  else if (sortBy === "fee_low")
-    query = query.order("consultation_fee", { ascending: true });
-  else if (sortBy === "fee_high")
-    query = query.order("consultation_fee", { ascending: false });
-  else if (sortBy === "experience")
-    query = query.order("experience", { ascending: false });
-
-  const { data: doctors, error, count } = await query.range(from, to);
-
+  // Enrich with clinic_location for the map view
   const doctorsWithLocations = await Promise.all(
-    (doctors || []).map(async (doctor) => {
-      if (doctor.clinic_location) {
-        const { data: locationData } = await supabase.rpc(
-          "get_doctor_location",
-          {
-            doctor_id: doctor.id,
-          }
-        );
+    rawDoctors.map(async (doctor: Record<string, unknown>) => {
+      if (doctor.clinic_location !== undefined && doctor.clinic_location !== null) {
+        const { data: locationData } = await supabase.rpc("get_doctor_location", {
+          doctor_id: doctor.id,
+        });
         if (locationData && locationData.length > 0) {
           return {
             ...doctor,
@@ -131,7 +118,12 @@ export default async function DoctorsPage({
             className="mt-1 text-sm"
             style={{ color: "rgba(255,255,255,0.45)" }}
           >
-            {count ?? 0} verified PMDC-registered doctors available
+            {count} verified PMDC-registered doctor{count !== 1 ? "s" : ""} available
+            {params.q && (
+              <span style={{ color: "rgba(255,255,255,0.6)" }}>
+                {" "}· results for &ldquo;{params.q}&rdquo;
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -153,7 +145,7 @@ export default async function DoctorsPage({
             doctors={doctorsWithLocations}
             specializations={specializations || []}
             initialParams={params}
-            totalCount={count || 0}
+            totalCount={count}
             currentPage={currentPage}
             pageSize={PAGE_SIZE}
           />

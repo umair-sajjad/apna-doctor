@@ -51,11 +51,9 @@ export default function DoctorNavbarClient({
     if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
     setProfileOpen(true);
   };
-
   const handleMouseLeave = () => {
     hoverTimeout.current = setTimeout(() => setProfileOpen(false), 150);
   };
-
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 
@@ -68,12 +66,12 @@ export default function DoctorNavbarClient({
     <Link
       href={href}
       aria-label={label}
-      className={`relative flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+      className="relative flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+      style={
         isActive(href)
-          ? "text-blue-600"
-          : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-      }`}
-      style={isActive(href) ? { background: "var(--primary-light)" } : {}}
+          ? { background: "var(--primary-light)", color: "var(--primary)" }
+          : { color: "#6b7280" }
+      }
     >
       {icon}
       {badge != null && badge > 0 && (
@@ -87,17 +85,20 @@ export default function DoctorNavbarClient({
   const navLink = (href: string, label: string) => (
     <Link
       href={href}
-      className={`text-sm font-medium transition-colors ${
-        isActive(href) ? "text-blue-600" : "text-gray-600 hover:text-gray-900"
-      }`}
-      style={isActive(href) ? { color: "var(--primary)" } : {}}
+      className="text-sm font-medium transition-colors"
+      style={
+        isActive(href) ? { color: "var(--primary)" } : { color: "#4b5563" }
+      }
     >
       {label}
     </Link>
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+    <header
+      className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur-sm"
+      style={{ borderColor: "var(--primary-light)" }}
+    >
       <div className="mx-auto max-w-7xl px-4">
         <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo */}
@@ -136,7 +137,7 @@ export default function DoctorNavbarClient({
             </div>
           </Link>
 
-          {/* Desktop Nav */}
+          {/* Desktop nav */}
           {doctor && (
             <nav className="hidden items-center gap-6 md:flex">
               {navLink("/doctor/dashboard", "Dashboard")}
@@ -146,7 +147,7 @@ export default function DoctorNavbarClient({
             </nav>
           )}
 
-          {/* Right actions */}
+          {/* Right */}
           <div className="flex items-center gap-2">
             {doctor ? (
               <>
@@ -170,7 +171,8 @@ export default function DoctorNavbarClient({
                   onMouseLeave={handleMouseLeave}
                 >
                   <button
-                    className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-gray-200 bg-gray-100 transition-all hover:border-blue-400 focus:outline-none"
+                    className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full transition-all focus:outline-none"
+                    style={{ border: "2px solid var(--primary-light)" }}
                     aria-label="Profile menu"
                     aria-expanded={profileOpen}
                   >
@@ -183,54 +185,67 @@ export default function DoctorNavbarClient({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <User className="h-5 w-5 text-gray-500" />
+                      <User className="h-5 w-5 text-gray-400" />
                     )}
                   </button>
 
                   {profileOpen && (
-                    <div className="absolute top-10 right-0 w-64 rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
+                    <div
+                      className="absolute top-10 right-0 w-64 rounded-2xl bg-white shadow-xl"
+                      style={{ border: "1px solid var(--primary-light)" }}
+                    >
                       <div className="absolute -top-2 right-0 h-2 w-full" />
-
-                      <div className="flex items-center gap-3 border-b border-gray-100 p-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className="flex items-center gap-3 border-b p-4"
+                        style={{ borderColor: "var(--primary-light)" }}
+                      >
+                        <div
+                          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                          style={{ background: "var(--primary-light)" }}
+                        >
                           {doctor.profile_photo ? (
                             <Image
                               src={doctor.profile_photo}
                               alt={doctor.full_name}
-                              width={48}
-                              height={48}
+                              width={44}
+                              height={44}
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <User className="h-6 w-6 text-gray-400" />
+                            <User
+                              className="h-5 w-5"
+                              style={{ color: "var(--primary)" }}
+                            />
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-gray-900">
+                          <p
+                            className="truncate text-sm font-semibold"
+                            style={{ color: "var(--text-dark)" }}
+                          >
                             Dr. {doctor.full_name}
                           </p>
-                          <p className="truncate text-xs text-gray-500">
+                          <p className="truncate text-xs text-gray-400">
                             {doctor.email}
                           </p>
                         </div>
                       </div>
-
                       <div className="p-2">
                         <Link
                           href="/doctor/profile"
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                           onClick={() => setProfileOpen(false)}
+                          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
+                          style={{ color: "var(--text-dark)" }}
                         >
-                          <User className="h-4 w-4 text-gray-400" />
+                          <User size={14} style={{ color: "var(--primary)" }} />{" "}
                           View Profile
                         </Link>
                         <form action={signOut}>
                           <button
                             type="submit"
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-50"
                           >
-                            <LogOut className="h-4 w-4" />
-                            Logout
+                            <LogOut size={14} /> Logout
                           </button>
                         </form>
                       </div>
@@ -242,18 +257,20 @@ export default function DoctorNavbarClient({
               <div className="hidden items-center gap-2 md:flex">
                 <Link
                   href="/login/doctor"
-                  className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-                  style={{ background: "var(--primary)" }}
+                  className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, var(--primary), var(--accent))",
+                  }}
                 >
-                  <Stethoscope className="h-4 w-4" />
-                  Doctor Login
+                  <Stethoscope className="h-4 w-4" /> Doctor Login
                 </Link>
               </div>
             )}
 
             {/* Mobile hamburger */}
             <button
-              onClick={() => setMobileOpen((prev) => !prev)}
+              onClick={() => setMobileOpen((p) => !p)}
               className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 md:hidden"
               aria-label="Toggle menu"
             >
@@ -269,12 +286,24 @@ export default function DoctorNavbarClient({
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="border-t border-gray-100 bg-white px-4 py-4 md:hidden">
+        <div
+          className="border-t bg-white px-4 py-4 md:hidden"
+          style={{ borderColor: "var(--primary-light)" }}
+        >
           <nav className="flex flex-col gap-1">
             {doctor ? (
               <>
-                <div className="mb-2 flex items-center gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="mb-2 flex items-center gap-3 rounded-xl p-3"
+                  style={{
+                    background: "var(--bg-soft)",
+                    border: "1px solid var(--primary-light)",
+                  }}
+                >
+                  <div
+                    className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                    style={{ background: "var(--primary-light)" }}
+                  >
                     {doctor.profile_photo ? (
                       <Image
                         src={doctor.profile_photo}
@@ -284,20 +313,29 @@ export default function DoctorNavbarClient({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <User className="h-4 w-4 text-gray-500" />
+                      <User
+                        className="h-4 w-4"
+                        style={{ color: "var(--primary)" }}
+                      />
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900">
+                    <p
+                      className="truncate text-sm font-semibold"
+                      style={{ color: "var(--text-dark)" }}
+                    >
                       Dr. {doctor.full_name}
                     </p>
-                    <p className="truncate text-xs text-gray-500">
+                    <p className="truncate text-xs text-gray-400">
                       {doctor.email}
                     </p>
                   </div>
                 </div>
 
-                <div className="my-1 border-t border-gray-100" />
+                <div
+                  className="my-1 border-t"
+                  style={{ borderColor: "var(--primary-light)" }}
+                />
 
                 <MobileLink
                   href="/doctor/dashboard"
@@ -338,7 +376,10 @@ export default function DoctorNavbarClient({
                   badge={notificationCount}
                 />
 
-                <div className="my-1 border-t border-gray-100" />
+                <div
+                  className="my-1 border-t"
+                  style={{ borderColor: "var(--primary-light)" }}
+                />
 
                 <MobileLink
                   href="/doctor/profile"
@@ -347,9 +388,8 @@ export default function DoctorNavbarClient({
                   active={isActive("/doctor/profile")}
                 />
                 <form action={signOut}>
-                  <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50">
-                    <LogOut className="h-4 w-4" />
-                    Logout
+                  <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50">
+                    <LogOut className="h-4 w-4" /> Logout
                   </button>
                 </form>
               </>
@@ -387,15 +427,17 @@ function MobileLink({
   return (
     <Link
       href={href}
-      className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-        active ? "text-blue-600" : "text-gray-700 hover:bg-gray-50"
-      }`}
+      className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
       style={
         highlight
-          ? { background: "var(--primary)", color: "white" }
+          ? {
+              background:
+                "linear-gradient(135deg, var(--primary), var(--accent))",
+              color: "white",
+            }
           : active
-            ? { background: "var(--primary-light)" }
-            : {}
+            ? { background: "var(--primary-light)", color: "var(--primary)" }
+            : { color: "var(--text-dark)" }
       }
     >
       <span className="flex items-center gap-3">

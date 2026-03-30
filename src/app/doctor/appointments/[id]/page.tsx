@@ -2,6 +2,32 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import AppointmentActions from "./AppointmentActions";
+import Logo from "@/components/shared/logo";
+import {
+  ArrowLeft,
+  User,
+  Phone,
+  Mail,
+  CalendarDays,
+  Clock,
+  CreditCard,
+  MessageSquare,
+} from "lucide-react";
+
+const STATUS_STYLES: Record<
+  string,
+  { bg: string; color: string; label: string }
+> = {
+  completed: { bg: "#d1fae5", color: "#059669", label: "Completed" },
+  confirmed: {
+    bg: "var(--primary-light)",
+    color: "var(--primary)",
+    label: "Confirmed",
+  },
+  cancelled: { bg: "#fee2e2", color: "#dc2626", label: "Cancelled" },
+  pending: { bg: "#fef9c3", color: "#a16207", label: "Pending" },
+  no_show: { bg: "#f3f4f6", color: "#6b7280", label: "No Show" },
+};
 
 export default async function DoctorAppointmentDetailPage({
   params,
@@ -14,12 +40,8 @@ export default async function DoctorAppointmentDetailPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  // Get appointment
   const { data: appointment } = await supabase
     .from("appointments")
     .select("*, users(full_name, phone, email)")
@@ -27,134 +49,221 @@ export default async function DoctorAppointmentDetailPage({
     .eq("doctor_id", user.id)
     .single();
 
-  if (!appointment) {
-    notFound();
-  }
+  if (!appointment) notFound();
+
+  const statusStyle =
+    STATUS_STYLES[appointment.status] ?? STATUS_STYLES.pending;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: "var(--bg-soft)" }}>
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-4">
-          <Link href="/doctor/appointments" className="text-blue-600">
-            ← Back to Appointments
+      <header
+        className="sticky top-0 z-30 border-b bg-white/95 backdrop-blur-sm"
+        style={{ borderColor: "var(--primary-light)" }}
+      >
+        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
+          <Logo size="sm" />
+          <Link
+            href="/doctor/appointments"
+            className="flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-70"
+            style={{ color: "var(--primary)" }}
+          >
+            <ArrowLeft size={14} /> Back to Appointments
           </Link>
         </div>
       </header>
 
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold">Appointment Details</h2>
-          <span
-            className={`rounded-full px-4 py-2 text-sm font-medium ${
-              appointment.status === "completed"
-                ? "bg-green-100 text-green-800"
-                : appointment.status === "confirmed"
-                  ? "bg-blue-100 text-blue-800"
-                  : appointment.status === "cancelled"
-                    ? "bg-red-100 text-red-800"
-                    : "bg-yellow-100 text-yellow-800"
-            }`}
+      <div className="mx-auto max-w-4xl px-4 py-10">
+        {/* Title row */}
+        <div className="mb-6 flex items-center justify-between">
+          <h1
+            className="font-display text-2xl font-bold sm:text-3xl"
+            style={{ color: "var(--text-dark)" }}
           >
-            {appointment.status}
+            Appointment Details
+          </h1>
+          <span
+            className="rounded-full px-4 py-1.5 text-sm font-semibold capitalize"
+            style={{ background: statusStyle.bg, color: statusStyle.color }}
+          >
+            {statusStyle.label}
           </span>
         </div>
 
-        {/* Appointment Info */}
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6">
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-semibold">Patient Information</h3>
-              <div className="mt-4 space-y-2">
-                <p>
-                  <strong>Name:</strong>{" "}
-                  {appointment.users?.full_name || appointment.patient_name}
-                </p>
-                <p>
-                  <strong>Phone:</strong>{" "}
-                  {appointment.users?.phone || appointment.patient_phone}
-                </p>
-                <p>
-                  <strong>Email:</strong>{" "}
-                  {appointment.users?.email || appointment.patient_email}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold">Appointment Information</h3>
-              <div className="mt-4 space-y-2">
-                <p>
-                  <strong>Date:</strong>{" "}
-                  {new Date(appointment.appointment_date).toLocaleDateString(
-                    "en-US",
-                    {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    }
-                  )}
-                </p>
-                <p>
-                  <strong>Time:</strong> {appointment.appointment_time}
-                </p>
-                <p>
-                  <strong>Duration:</strong> {appointment.duration} minutes
-                </p>
-                <p>
-                  <strong>Booking Reference:</strong>{" "}
-                  {appointment.booking_reference}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Chief Complaint */}
-          {appointment.chief_complaint && (
-            <div className="mt-6 border-t pt-6">
-              <h3 className="text-lg font-semibold">Chief Complaint</h3>
-              <p className="mt-2">{appointment.chief_complaint}</p>
-            </div>
-          )}
-
-          {/* Payment Info */}
-          <div className="mt-6 border-t pt-6">
-            <h3 className="text-lg font-semibold">Payment Information</h3>
-            <div className="mt-4 space-y-2">
-              <p>
-                <strong>Consultation Fee:</strong> PKR{" "}
-                {appointment.consultation_fee}
-              </p>
-              <p>
-                <strong>Payment Status:</strong>{" "}
+        <div className="space-y-5">
+          {/* Patient + appointment info */}
+          <div
+            className="overflow-hidden rounded-2xl bg-white"
+            style={{ border: "1px solid var(--primary-light)" }}
+          >
+            {/* Dark header */}
+            <div
+              className="relative overflow-hidden px-6 py-5"
+              style={{ background: "var(--text-dark)" }}
+            >
+              <div
+                className="pointer-events-none absolute inset-0 opacity-5"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+                  backgroundSize: "24px 24px",
+                }}
+              />
+              <div className="relative z-10 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-white">
+                    {appointment.users?.full_name || appointment.patient_name}
+                  </p>
+                  <p
+                    className="text-xs"
+                    style={{ color: "rgba(255,255,255,0.5)" }}
+                  >
+                    Patient
+                  </p>
+                </div>
                 <span
-                  className={`font-medium ${
-                    appointment.payment_status === "completed"
-                      ? "text-green-600"
-                      : "text-yellow-600"
-                  }`}
+                  className="rounded-full px-3 py-1 font-mono text-xs font-medium"
+                  style={{
+                    background: "rgba(14,165,233,0.15)",
+                    color: "var(--accent)",
+                  }}
                 >
-                  {appointment.payment_status}
+                  {appointment.booking_reference}
                 </span>
-              </p>
-              {appointment.payment_method && (
-                <p>
-                  <strong>Payment Method:</strong> {appointment.payment_method}
-                </p>
-              )}
+              </div>
+            </div>
+
+            {/* Info grid */}
+            <div
+              className="grid grid-cols-1 divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0"
+              style={{ borderColor: "var(--primary-light)" }}
+            >
+              {[
+                {
+                  icon: Phone,
+                  label: "Phone",
+                  value: appointment.users?.phone || appointment.patient_phone,
+                },
+                {
+                  icon: Mail,
+                  label: "Email",
+                  value: appointment.users?.email || appointment.patient_email,
+                },
+                {
+                  icon: CalendarDays,
+                  label: "Date",
+                  value: new Date(
+                    appointment.appointment_date
+                  ).toLocaleDateString("en-PK", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  }),
+                },
+                {
+                  icon: Clock,
+                  label: "Time",
+                  value: appointment.appointment_time,
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-start gap-3 p-5"
+                  style={{ borderColor: "var(--primary-light)" }}
+                >
+                  <div
+                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                    style={{ background: "var(--primary-light)" }}
+                  >
+                    <item.icon size={14} style={{ color: "var(--primary)" }} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">{item.label}</p>
+                    <p
+                      className="mt-0.5 text-sm font-semibold"
+                      style={{ color: "var(--text-dark)" }}
+                    >
+                      {item.value || "—"}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
 
-        {/* Actions */}
-        {appointment.status !== "completed" &&
-          appointment.status !== "cancelled" && (
-            <AppointmentActions
-              appointmentId={appointment.id}
-              currentStatus={appointment.status}
-            />
+          {/* Chief complaint */}
+          {appointment.chief_complaint && (
+            <div
+              className="rounded-2xl bg-white p-6"
+              style={{ border: "1px solid var(--primary-light)" }}
+            >
+              <div className="mb-3 flex items-center gap-2">
+                <MessageSquare size={15} style={{ color: "var(--primary)" }} />
+                <p
+                  className="text-xs font-semibold tracking-widest uppercase"
+                  style={{ color: "var(--accent)" }}
+                >
+                  Chief Complaint
+                </p>
+              </div>
+              <p className="text-sm leading-relaxed text-gray-600">
+                {appointment.chief_complaint}
+              </p>
+            </div>
           )}
+
+          {/* Payment info */}
+          <div
+            className="rounded-2xl bg-white p-6"
+            style={{ border: "1px solid var(--primary-light)" }}
+          >
+            <div className="mb-4 flex items-center gap-2">
+              <CreditCard size={15} style={{ color: "var(--primary)" }} />
+              <p
+                className="text-xs font-semibold tracking-widest uppercase"
+                style={{ color: "var(--accent)" }}
+              >
+                Payment
+              </p>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-400">Consultation Fee</p>
+                <p
+                  className="font-display text-2xl font-bold"
+                  style={{ color: "var(--text-dark)" }}
+                >
+                  PKR {appointment.consultation_fee.toLocaleString()}
+                </p>
+                {appointment.payment_method && (
+                  <p className="mt-0.5 text-xs text-gray-400 capitalize">
+                    via {appointment.payment_method}
+                  </p>
+                )}
+              </div>
+              <span
+                className="rounded-full px-3 py-1.5 text-xs font-semibold capitalize"
+                style={
+                  appointment.payment_status === "completed"
+                    ? { background: "#d1fae5", color: "#059669" }
+                    : { background: "#fef9c3", color: "#a16207" }
+                }
+              >
+                {appointment.payment_status}
+              </span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          {appointment.status !== "completed" &&
+            appointment.status !== "cancelled" && (
+              <AppointmentActions
+                appointmentId={appointment.id}
+                currentStatus={appointment.status}
+              />
+            )}
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
-import { callOllama } from "./ollama";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { callLLM } from "./llm";
 import {
   buildStage1Prompt,
   buildStage6Prompt,
@@ -7,12 +7,7 @@ import {
   buildOffTopicPrompt,
 } from "./prompts";
 import { getAvailableSlots } from "./slot-generator";
-import {
-  ExtractedData,
-  ChatApiResponse,
-  ChatStage,
-  DoctorResult,
-} from "@/types/chat";
+import { ExtractedData, ChatApiResponse, DoctorResult } from "@/types/chat";
 import { nanoid } from "nanoid";
 
 const DEFAULT_EXTRACTED_DATA: ExtractedData = {
@@ -33,18 +28,25 @@ export async function processMessage(
   payload?: Record<string, string>
 ): Promise<ChatApiResponse> {
   const supabase = await createClient();
+  const serviceSupabase = createServiceClient();
 
   const conversation = await getOrCreateConversation(
-    supabase,
+    serviceSupabase,
     conversationId,
     userId
   );
+
   const state: ExtractedData = {
     ...DEFAULT_EXTRACTED_DATA,
     ...(conversation.extracted_data as Partial<ExtractedData>),
   };
 
-  await saveMessage(supabase, conversationId, "user", userMessage);
+  console.log("=== processMessage ===");
+  console.log("ConversationId:", conversationId);
+  console.log("Action:", action);
+  console.log("Loaded state:", JSON.stringify(state));
+
+  await saveMessage(serviceSupabase, conversationId, "user", userMessage);
 
   let response: ChatApiResponse;
 
@@ -62,12 +64,18 @@ export async function processMessage(
     response = await handleTextMessage(supabase, state, userId, userMessage);
   }
 
-  await updateConversationState(supabase, conversationId, {
-    ...state,
-    stage: response.stage,
-  });
-
-  await saveMessage(supabase, conversationId, "assistant", response.response);
+  await updateConversationState(
+    serviceSupabase,
+    conversationId,
+    state,
+    response.stage
+  );
+  await saveMessage(
+    serviceSupabase,
+    conversationId,
+    "assistant",
+    response.response
+  );
 
   return response;
 }
@@ -82,34 +90,34 @@ async function handleTextMessage(
     return handleInfoCollection(supabase, state, userId, message);
   }
 
-  const ollamaRes = await callOllama(buildStage1Prompt(message));
+  const llmRes = await callLLM(buildStage1Prompt(message));
 
   if (
-    ollamaRes.intent === "off_topic" ||
-    (ollamaRes.intent !== "health_concern" &&
-      ollamaRes.intent !== "greeting" &&
-      ollamaRes.intent !== "unclear" &&
+    llmRes.intent === "off_topic" ||
+    (llmRes.intent !== "health_concern" &&
+      llmRes.intent !== "greeting" &&
+      llmRes.intent !== "unclear" &&
       state.stage !== "greeting")
   ) {
-    const redirectRes = await callOllama(
+    const redirectRes = await callLLM(
       buildOffTopicPrompt(message, state.stage)
     );
     return { response: redirectRes.response, stage: state.stage };
   }
 
-  if (ollamaRes.intent === "greeting" || ollamaRes.intent === "unclear") {
-    return { response: ollamaRes.response, stage: "greeting" };
+  if (llmRes.intent === "greeting" || llmRes.intent === "unclear") {
+    return { response: llmRes.response, stage: "greeting" };
   }
 
-  if (ollamaRes.needs_clarification) {
-    return { response: ollamaRes.response, stage: "understanding_problem" };
+  if (llmRes.needs_clarification) {
+    return { response: llmRes.response, stage: "understanding_problem" };
   }
 
-  state.symptoms = ollamaRes.symptoms || [];
-  state.specialty = ollamaRes.specialty || null;
+  state.symptoms = llmRes.symptoms || [];
+  state.specialty = llmRes.specialty || null;
 
   if (!state.specialty) {
-    return { response: ollamaRes.response, stage: "understanding_problem" };
+    return { response: llmRes.response, stage: "understanding_problem" };
   }
 
   const doctors = await searchDoctors(supabase, state.specialty, userId);
@@ -135,6 +143,9 @@ async function handleDoctorSelection(
   state: ExtractedData,
   doctorId: string
 ): Promise<ChatApiResponse> {
+  console.log("=== handleDoctorSelection ===");
+  console.log("Doctor ID:", doctorId);
+
   const { data: doctor } = await supabase
     .from("doctors")
     .select("id, full_name, is_active, is_verified")
@@ -151,6 +162,8 @@ async function handleDoctorSelection(
   }
 
   state.selected_doctor_id = doctorId;
+  console.log("State after doctor selection:", JSON.stringify(state));
+
   const slots = await getAvailableSlots(doctorId);
 
   if (Object.keys(slots).length === 0) {
@@ -174,6 +187,10 @@ async function handleSlotSelection(
   date: string,
   time: string
 ): Promise<ChatApiResponse> {
+  console.log("=== handleSlotSelection ===");
+  console.log("selected_doctor_id:", state.selected_doctor_id);
+  console.log("Date:", date, "Time:", time);
+
   const { count } = await supabase
     .from("appointments")
     .select("id", { count: "exact", head: true })
@@ -226,21 +243,19 @@ async function handleInfoCollection(
   userId: string,
   message: string
 ): Promise<ChatApiResponse> {
-  const ollamaRes = await callOllama(
-    buildStage6Prompt(message, state.patient_info)
-  );
+  const llmRes = await callLLM(buildStage6Prompt(message, state.patient_info));
 
   state.patient_info = {
-    name: ollamaRes.collected?.name || state.patient_info.name,
-    phone: ollamaRes.collected?.phone || state.patient_info.phone,
+    name: llmRes.collected?.name || state.patient_info.name,
+    phone: llmRes.collected?.phone || state.patient_info.phone,
     email: state.patient_info.email,
   };
 
-  if (!ollamaRes.all_collected) {
-    return { response: ollamaRes.response, stage: "collecting_info" };
+  if (!llmRes.all_collected) {
+    return { response: llmRes.response, stage: "collecting_info" };
   }
 
-  return createBooking(supabase, state, "");
+  return createBooking(supabase, state, userId);
 }
 
 async function createBooking(
@@ -248,11 +263,17 @@ async function createBooking(
   state: ExtractedData,
   userId: string
 ): Promise<ChatApiResponse> {
+  console.log("=== createBooking ===");
+  console.log("userId:", userId);
+  console.log("selected_doctor_id:", state.selected_doctor_id);
+
   const { data: doctor } = await supabase
     .from("doctors")
     .select("full_name, specialization, consultation_fee, clinic_name, city")
     .eq("id", state.selected_doctor_id!)
     .single();
+
+  console.log("Doctor fetched:", JSON.stringify(doctor));
 
   if (!doctor) {
     return {
@@ -263,7 +284,7 @@ async function createBooking(
 
   const bookingReference = `APT-${new Date().getFullYear()}-${nanoid(8).toUpperCase()}`;
 
-  const { error } = await supabase.from("appointments").insert({
+  const insertPayload = {
     doctor_id: state.selected_doctor_id!,
     user_id: userId,
     appointment_date: state.selected_slot.date!,
@@ -277,17 +298,22 @@ async function createBooking(
     chief_complaint: state.symptoms.join(", "),
     consultation_fee: doctor.consultation_fee,
     payment_status: "pending",
-  });
+  };
+
+  console.log("Insert payload:", JSON.stringify(insertPayload));
+
+  const { error } = await supabase.from("appointments").insert(insertPayload);
+
+  console.log("Insert error:", JSON.stringify(error));
 
   if (error) {
-    console.error("Booking insert error:", error);
     return {
       response: "Failed to create booking. Please try again.",
       stage: "slot_selected",
     };
   }
 
-  const ollamaRes = await callOllama(
+  const llmRes = await callLLM(
     buildConfirmationPrompt({
       doctor_name: doctor.full_name,
       specialization: doctor.specialization,
@@ -301,7 +327,7 @@ async function createBooking(
   );
 
   return {
-    response: ollamaRes.response,
+    response: llmRes.response,
     stage: "completed",
     booking: {
       booking_reference: bookingReference,
@@ -345,19 +371,23 @@ async function searchDoctors(
 }
 
 async function getOrCreateConversation(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createServiceClient>,
   conversationId: string,
   userId: string
 ) {
-  const { data: existing } = await supabase
+  const { data: existing, error } = await supabase
     .from("chat_conversations")
     .select("id, extracted_data")
     .eq("id", conversationId)
-    .single();
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  console.log("Fetched conversation:", JSON.stringify(existing));
+  console.log("Fetch error:", JSON.stringify(error));
 
   if (existing) return existing;
 
-  const { data: created } = await supabase
+  const { data: created, error: createError } = await supabase
     .from("chat_conversations")
     .insert({
       id: conversationId,
@@ -369,28 +399,37 @@ async function getOrCreateConversation(
     .select("id, extracted_data")
     .single();
 
+  console.log("Created conversation:", JSON.stringify(created));
+  console.log("Create error:", JSON.stringify(createError));
+
   return created!;
 }
 
 async function updateConversationState(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createServiceClient>,
   conversationId: string,
-  state: ExtractedData
+  state: ExtractedData,
+  stage: string
 ) {
-  const updates: Record<string, unknown> = { extracted_data: state };
-  if (state.stage === "completed") {
+  const updatedState = { ...state, stage };
+  const updates: Record<string, unknown> = { extracted_data: updatedState };
+
+  if (stage === "completed") {
     updates.status = "completed";
     updates.outcome_type = "booking_created";
   }
 
-  await supabase
+  const { error } = await supabase
     .from("chat_conversations")
     .update(updates)
     .eq("id", conversationId);
+
+  console.log("State saved to DB:", JSON.stringify(updatedState));
+  console.log("DB update error:", JSON.stringify(error));
 }
 
 async function saveMessage(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createServiceClient>,
   conversationId: string,
   role: "user" | "assistant",
   content: string
