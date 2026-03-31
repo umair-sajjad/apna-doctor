@@ -33,5 +33,17 @@ export default async function UserNavbar({}) {
     return <UserNavbarClient user={null} />;
   }
 
-  return <UserNavbarClient user={userData} />;
+  // Unread message count
+  const { data: unreadConvs } = await supabase
+    .from("dm_conversations")
+    .select("user_unread_count")
+    .eq("user_id", user.id)
+    .gt("user_unread_count", 0);
+
+  const messageCount = (unreadConvs ?? []).reduce(
+    (sum, row) => sum + (row.user_unread_count ?? 0),
+    0
+  );
+
+  return <UserNavbarClient user={userData} messageCount={messageCount} />;
 }

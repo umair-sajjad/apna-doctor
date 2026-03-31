@@ -19,6 +19,11 @@ import {
   Clock,
   Stethoscope,
   Trash2,
+  CheckCircle,
+  Calendar,
+  CreditCard,
+  Copy,
+  ArrowRight,
 } from "lucide-react";
 import { ChatApiResponse, DoctorResult, SlotsByDate } from "@/types/chat";
 
@@ -31,6 +36,15 @@ interface Message {
   doctors?: DoctorResult[];
   slots?: SlotsByDate;
   isError?: boolean;
+  booking?: {
+    booking_reference: string;
+    doctor_name: string;
+    date: string;
+    time: string;
+    clinic_name: string;
+    consultation_fee: number;
+  };
+  timestamp?: string;
 }
 
 interface ConversationSummary {
@@ -53,6 +67,7 @@ const WELCOME_MESSAGE: Message = {
     "Regular checkup",
     "For my child",
   ],
+  timestamp: new Date().toISOString(),
 };
 
 const QUICK_PROMPTS = [
@@ -85,6 +100,150 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function formatMessageTime(isoString?: string): string {
+  if (!isoString) return "";
+  return new Date(isoString).toLocaleTimeString("en-PK", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function BookingCard({
+  booking,
+}: {
+  booking: {
+    booking_reference: string;
+    doctor_name: string;
+    date: string;
+    time: string;
+    clinic_name: string;
+    consultation_fee: number;
+  };
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copyRef = () => {
+    navigator.clipboard.writeText(booking.booking_reference);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const formattedDate = new Date(booking.date + "T00:00:00").toLocaleDateString(
+    "en-PK",
+    {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }
+  );
+
+  const [h, m] = booking.time.split(":").map(Number);
+  const formattedTime = `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+
+  return (
+    <div
+      className="max-w-sm overflow-hidden rounded-2xl border"
+      style={{ borderColor: "var(--primary-light)" }}
+    >
+      {/* Header */}
+      <div
+        className="px-4 py-3 text-center"
+        style={{
+          background: "linear-gradient(135deg, var(--primary), var(--accent))",
+        }}
+      >
+        <div className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+          <CheckCircle size={16} className="text-white" />
+        </div>
+        <p className="text-xs font-semibold text-white">
+          Appointment Reserved!
+        </p>
+      </div>
+
+      {/* Details */}
+      <div className="space-y-2 p-4" style={{ background: "var(--bg-soft)" }}>
+        <div className="flex items-center gap-2">
+          <Stethoscope size={13} style={{ color: "var(--primary)" }} />
+          <p
+            className="text-xs font-semibold"
+            style={{ color: "var(--text-dark)" }}
+          >
+            {booking.doctor_name}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Calendar size={13} style={{ color: "var(--primary)" }} />
+          <p className="text-xs text-gray-600">
+            {formattedDate} · {formattedTime}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <MapPin size={13} style={{ color: "var(--primary)" }} />
+          <p className="text-xs text-gray-600">{booking.clinic_name}</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <CreditCard size={13} style={{ color: "var(--primary)" }} />
+          <p className="text-xs font-semibold text-green-600">
+            PKR {booking.consultation_fee.toLocaleString()}
+          </p>
+        </div>
+
+        {/* Booking reference */}
+        <div
+          className="mt-3 flex items-center justify-between rounded-lg px-3 py-2"
+          style={{
+            background: "white",
+            border: "1px solid var(--primary-light)",
+          }}
+        >
+          <div>
+            <p className="text-[10px] text-gray-400">Booking Reference</p>
+            <p
+              className="text-xs font-bold"
+              style={{ color: "var(--text-dark)" }}
+            >
+              {booking.booking_reference}
+            </p>
+          </div>
+          <button
+            onClick={copyRef}
+            className="flex h-7 w-7 items-center justify-center rounded-lg transition-all hover:bg-gray-100"
+            title="Copy reference"
+          >
+            <Copy
+              size={12}
+              style={{ color: copied ? "#059669" : "var(--primary)" }}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Footer CTA */}
+      <div
+        className="border-t px-4 py-3"
+        style={{ borderColor: "var(--primary-light)", background: "white" }}
+      >
+        <Link
+          href="/appointments"
+          className="flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold text-white transition-all hover:opacity-90"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--primary), var(--accent))",
+          }}
+        >
+          Complete Payment in Dashboard
+          <ArrowRight size={12} />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ChatInterface() {
@@ -110,7 +269,6 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Keep ref in sync so unmount cleanup can read latest conversationId
   useEffect(() => {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
@@ -130,14 +288,12 @@ export default function ChatInterface() {
     return localStorage.getItem(DRAFT_KEY(id)) ?? "";
   }, []);
 
-  // Save draft on every keystroke so nothing is ever lost
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInput(val);
     if (conversationId) saveDraft(conversationId, val);
   };
 
-  // Save draft on unmount
   useEffect(() => {
     return () => {
       const id = conversationIdRef.current;
@@ -159,13 +315,13 @@ export default function ChatInterface() {
       const data = await res.json();
       setConversations(data.conversations ?? []);
     } catch {
-      // Sidebar history is non-critical; fail silently
+      // non-critical
     } finally {
       setIsLoadingConversations(false);
     }
   }, []);
 
-  // ── Load messages for a specific conversation ───────────────────────────────
+  // ── Load messages for a conversation ───────────────────────────────────────
   const loadConversationMessages = useCallback(async (id: string) => {
     setIsLoadingMessages(true);
     try {
@@ -190,7 +346,6 @@ export default function ChatInterface() {
   useEffect(() => {
     fetchConversations();
 
-    // If navigated with ?q= start fresh so the query gets its own conversation
     if (initialQuery.trim()) return;
 
     const stored = sessionStorage.getItem(ACTIVE_CONV_KEY);
@@ -201,7 +356,25 @@ export default function ChatInterface() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-send initial ?q= query in a fresh conversation
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        await fetch("/api/user/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lat: latitude, lng: longitude }),
+        });
+      },
+      () => {
+        // Permission denied or unavailable — silently ignore
+      },
+      { timeout: 5000, maximumAge: 300000 }
+    );
+  }, []);
+
   useEffect(() => {
     if (initialQuery.trim()) {
       const newId = uuidv4();
@@ -222,7 +395,6 @@ export default function ChatInterface() {
     const trimmed = message.trim();
     if (!trimmed || loading) return;
 
-    // Determine (or create) conversation ID
     let activeId = overrideId ?? conversationIdRef.current;
     if (!activeId) {
       activeId = uuidv4();
@@ -231,24 +403,28 @@ export default function ChatInterface() {
       sessionStorage.setItem(ACTIVE_CONV_KEY, activeId);
     }
 
-    // Clear the draft for this conversation once sent
     saveDraft(activeId, "");
-
-    setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: trimmed, timestamp: new Date().toISOString() },
+    ]);
     setInput("");
     setLoading(true);
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: trimmed,
-          conversationId: activeId,
-          action,
-          payload,
+      const [res] = await Promise.all([
+        fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: trimmed,
+            conversationId: activeId,
+            action,
+            payload,
+          }),
         }),
-      });
+        new Promise((resolve) => setTimeout(resolve, 800)),
+      ]);
 
       const data: ChatApiResponse = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
@@ -260,10 +436,11 @@ export default function ChatInterface() {
           content: data.response,
           doctors: data.doctors,
           slots: data.slots,
+          booking: data.booking,
+          timestamp: new Date().toISOString(),
         },
       ]);
 
-      // Refresh sidebar so new/updated conversation appears
       fetchConversations();
     } catch {
       setMessages((prev) => [
@@ -308,21 +485,21 @@ export default function ChatInterface() {
     });
   };
 
-  // ── Create new conversation ─────────────────────────────────────────────────
+  // ── New conversation ────────────────────────────────────────────────────────
   const startNewChat = useCallback(() => {
-    saveDraft(conversationId, input); // preserve current draft
+    saveDraft(conversationId, input);
 
     const newId = uuidv4();
     setConversationId(newId);
     sessionStorage.setItem(ACTIVE_CONV_KEY, newId);
 
     setMessages([WELCOME_MESSAGE]);
-    setInput(restoreDraft(newId)); // typically empty for a brand-new id
+    setInput(restoreDraft(newId));
     setSidebarOpen(false);
     inputRef.current?.focus();
   }, [conversationId, input, saveDraft, restoreDraft]);
 
-  // ── Switch to an existing conversation ─────────────────────────────────────
+  // ── Switch conversation ─────────────────────────────────────────────────────
   const switchConversation = useCallback(
     (id: string) => {
       if (id === conversationId) {
@@ -330,27 +507,23 @@ export default function ChatInterface() {
         return;
       }
 
-      saveDraft(conversationId, input); // save current draft before leaving
-
+      saveDraft(conversationId, input);
       setConversationId(id);
       sessionStorage.setItem(ACTIVE_CONV_KEY, id);
       setSidebarOpen(false);
-
       setInput(restoreDraft(id));
       loadConversationMessages(id);
     },
     [conversationId, input, saveDraft, restoreDraft, loadConversationMessages]
   );
 
-  // ── Delete a conversation ───────────────────────────────────────────────────
+  // ── Delete conversation ─────────────────────────────────────────────────────
   const deleteConversation = useCallback(
     async (id: string, e: React.MouseEvent) => {
       e.stopPropagation();
 
-      // Optimistic removal from sidebar
       setConversations((prev) => prev.filter((c) => c.id !== id));
 
-      // If we're deleting the active conversation, start fresh
       if (id === conversationId) {
         const newId = uuidv4();
         setConversationId(newId);
@@ -365,7 +538,6 @@ export default function ChatInterface() {
         });
         if (!res.ok) throw new Error("Delete failed");
       } catch {
-        // Revert optimistic update on failure
         fetchConversations();
       }
     },
@@ -378,10 +550,7 @@ export default function ChatInterface() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div
-      className="flex flex-1 overflow-hidden"
-      style={{ height: "calc(100vh - 89px)" }}
-    >
+    <div className="flex min-h-0 flex-1 overflow-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -392,7 +561,7 @@ export default function ChatInterface() {
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside
-        className={`fixed top-[89px] bottom-0 left-0 z-30 flex w-72 flex-col transition-transform duration-300 md:relative md:top-auto md:bottom-auto md:z-auto md:translate-x-0 ${
+        className={`fixed top-[89px] bottom-0 left-0 z-30 flex min-h-0 w-72 flex-col transition-transform duration-300 md:relative md:top-auto md:bottom-auto md:z-auto md:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{
@@ -402,7 +571,7 @@ export default function ChatInterface() {
       >
         {/* Sidebar header */}
         <div
-          className="flex items-center justify-between border-b px-4 py-4"
+          className="flex shrink-0 items-center justify-between border-b px-4 py-4"
           style={{ borderColor: "rgba(255,255,255,0.06)" }}
         >
           <div className="flex items-center gap-2">
@@ -418,7 +587,7 @@ export default function ChatInterface() {
         </div>
 
         {/* New chat button */}
-        <div className="px-3 py-3">
+        <div className="shrink-0 px-3 py-3">
           <button
             onClick={startNewChat}
             className="flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
@@ -432,8 +601,8 @@ export default function ChatInterface() {
           </button>
         </div>
 
-        {/* Chat history */}
-        <div className="flex-1 overflow-y-auto px-3 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* Chat history — this is the only scrollable part */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <p
             className="mb-2 px-1 text-xs font-semibold tracking-widest uppercase"
             style={{ color: "rgba(255,255,255,0.3)" }}
@@ -442,7 +611,6 @@ export default function ChatInterface() {
           </p>
 
           {isLoadingConversations ? (
-            // Skeleton
             <div className="space-y-1">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="animate-pulse rounded-xl px-3 py-3">
@@ -457,7 +625,6 @@ export default function ChatInterface() {
               ))}
             </div>
           ) : conversations.length === 0 ? (
-            // Empty state
             <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
               <MessageSquare
                 size={24}
@@ -473,7 +640,6 @@ export default function ChatInterface() {
               </p>
             </div>
           ) : (
-            // Conversation list
             <div className="space-y-1">
               {conversations.map((conv) => {
                 const isActive = conv.id === conversationId;
@@ -527,7 +693,6 @@ export default function ChatInterface() {
                       </div>
                     </button>
 
-                    {/* Delete button — shown on hover */}
                     <button
                       onClick={(e) => deleteConversation(conv.id, e)}
                       className="absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-500/20"
@@ -547,7 +712,7 @@ export default function ChatInterface() {
 
         {/* Sidebar footer */}
         <div
-          className="border-t px-4 py-4"
+          className="shrink-0 border-t px-4 py-4"
           style={{ borderColor: "rgba(255,255,255,0.06)" }}
         >
           <Link
@@ -563,10 +728,10 @@ export default function ChatInterface() {
       </aside>
 
       {/* ── Chat area ───────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col overflow-hidden bg-white">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
         {/* Chat topbar */}
         <div
-          className="flex items-center gap-3 border-b px-4 py-3"
+          className="flex shrink-0 items-center gap-3 border-b px-4 py-3"
           style={{ borderColor: "var(--primary-light)" }}
         >
           <button
@@ -594,7 +759,6 @@ export default function ChatInterface() {
             </p>
           </div>
 
-          {/* New chat button in header (always accessible) */}
           <button
             onClick={startNewChat}
             className="hidden items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all hover:bg-gray-50 md:flex"
@@ -609,9 +773,9 @@ export default function ChatInterface() {
           </button>
         </div>
 
-        {/* Messages area */}
+        {/* Messages area — the only scrollable part in the chat column */}
         {isLoadingMessages ? (
-          <div className="flex flex-1 items-center justify-center">
+          <div className="flex min-h-0 flex-1 items-center justify-center">
             <div className="flex flex-col items-center gap-3 text-gray-400">
               <div
                 className="h-6 w-6 animate-spin rounded-full border-2 border-t-transparent"
@@ -624,7 +788,7 @@ export default function ChatInterface() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 space-y-5 overflow-y-auto px-4 pt-8 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pt-8 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {messages.map((msg, i) => (
               <div
                 key={i}
@@ -640,7 +804,6 @@ export default function ChatInterface() {
                 )}
 
                 <div className="max-w-[80%] space-y-3">
-                  {/* Bubble */}
                   <div
                     className="rounded-2xl px-4 py-3 text-sm leading-relaxed"
                     style={
@@ -669,7 +832,6 @@ export default function ChatInterface() {
                     {msg.content}
                   </div>
 
-                  {/* MCQ option pills */}
                   {msg.options && msg.options.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {msg.options.map((opt) => (
@@ -690,7 +852,6 @@ export default function ChatInterface() {
                     </div>
                   )}
 
-                  {/* Doctor cards */}
                   {msg.doctors && msg.doctors.length > 0 && (
                     <div className="space-y-2">
                       {msg.doctors.map((doc) => (
@@ -701,13 +862,33 @@ export default function ChatInterface() {
                         >
                           <div className="flex items-center gap-3 p-3">
                             <div
-                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                              className="h-10 w-10 shrink-0 overflow-hidden rounded-xl"
                               style={{ background: "var(--primary-light)" }}
                             >
-                              <Stethoscope
-                                size={16}
+                              {doc.profile_image ? (
+                                <img
+                                  src={doc.profile_image}
+                                  alt={doc.full_name}
+                                  className="h-full w-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = "none";
+                                    e.currentTarget.nextElementSibling?.classList.remove(
+                                      "hidden"
+                                    );
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                className={`flex h-full w-full items-center justify-center text-sm font-bold ${doc.profile_image ? "hidden" : ""}`}
                                 style={{ color: "var(--primary)" }}
-                              />
+                              >
+                                {doc.full_name
+                                  .split(" ")
+                                  .slice(0, 2)
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()}
+                              </div>
                             </div>
                             <div className="min-w-0 flex-1">
                               <p
@@ -724,7 +905,14 @@ export default function ChatInterface() {
                               </p>
                               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
                                 <span className="flex items-center gap-1 text-[11px] text-gray-400">
-                                  <MapPin size={10} /> {doc.city}
+                                  <MapPin size={10} />
+                                  {doc.city}
+                                  {doc.distance_meters && (
+                                    <span className="ml-1 font-medium text-green-600">
+                                      ({(doc.distance_meters / 1000).toFixed(1)}{" "}
+                                      km)
+                                    </span>
+                                  )}
                                 </span>
                                 <span className="flex items-center gap-1 text-[11px] text-gray-400">
                                   <Star
@@ -775,51 +963,124 @@ export default function ChatInterface() {
                     </div>
                   )}
 
-                  {/* Slot picker */}
                   {msg.slots && Object.keys(msg.slots).length > 0 && (
-                    <div className="space-y-3">
-                      {Object.entries(msg.slots).map(([date, times]) => (
-                        <div key={date}>
-                          <p
-                            className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold"
-                            style={{ color: "var(--text-dark)" }}
+                    <div className="max-w-sm space-y-3">
+                      {Object.entries(msg.slots).map(([date, times]) => {
+                        const morning = (times as string[]).filter((t) => {
+                          const h = parseInt(t.split(":")[0]);
+                          return h < 12;
+                        });
+                        const afternoon = (times as string[]).filter((t) => {
+                          const h = parseInt(t.split(":")[0]);
+                          return h >= 12 && h < 17;
+                        });
+                        const evening = (times as string[]).filter((t) => {
+                          const h = parseInt(t.split(":")[0]);
+                          return h >= 17;
+                        });
+
+                        const formatTime = (time: string) => {
+                          const [h, m] = time.split(":").map(Number);
+                          return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+                        };
+
+                        const SlotGroup = ({
+                          label,
+                          emoji,
+                          slots,
+                        }: {
+                          label: string;
+                          emoji: string;
+                          slots: string[];
+                        }) => {
+                          if (slots.length === 0) return null;
+                          return (
+                            <div>
+                              <p className="mb-1.5 text-[10px] font-semibold tracking-widest text-gray-400 uppercase">
+                                {emoji} {label}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {slots.map((time) => (
+                                  <button
+                                    key={time}
+                                    onClick={() => handleSelectSlot(date, time)}
+                                    disabled={loading}
+                                    className="rounded-lg border px-3 py-1.5 text-xs font-medium transition-all hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-50"
+                                    style={{
+                                      borderColor: "var(--primary-light)",
+                                      color: "var(--primary)",
+                                      background: "white",
+                                    }}
+                                  >
+                                    {formatTime(time)}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        };
+
+                        return (
+                          <div
+                            key={date}
+                            className="overflow-hidden rounded-2xl border"
+                            style={{ borderColor: "var(--primary-light)" }}
                           >
-                            <Clock
-                              size={11}
-                              style={{ color: "var(--primary)" }}
-                            />
-                            {new Date(date + "T00:00:00").toLocaleDateString(
-                              "en-PK",
-                              {
-                                weekday: "short",
-                                month: "short",
-                                day: "numeric",
-                              }
-                            )}
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {(times as string[]).map((time) => (
-                              <button
-                                key={time}
-                                onClick={() => handleSelectSlot(date, time)}
-                                disabled={loading}
-                                className="rounded-lg border px-3 py-1.5 text-xs font-medium transition-all hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-50"
-                                style={{
-                                  borderColor: "var(--primary-light)",
-                                  color: "var(--primary)",
-                                  background: "white",
-                                }}
-                              >
-                                {(() => {
-                                  const [h, m] = time.split(":").map(Number);
-                                  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
-                                })()}
-                              </button>
-                            ))}
+                            {/* Date header */}
+                            <div
+                              className="flex items-center gap-2 px-4 py-2.5"
+                              style={{
+                                background:
+                                  "linear-gradient(135deg, var(--primary), var(--accent))",
+                              }}
+                            >
+                              <Calendar size={12} className="text-white" />
+                              <p className="text-xs font-semibold text-white">
+                                {new Date(
+                                  date + "T00:00:00"
+                                ).toLocaleDateString("en-PK", {
+                                  weekday: "long",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </p>
+                            </div>
+
+                            {/* Slot groups */}
+                            <div
+                              className="space-y-3 p-4"
+                              style={{ background: "var(--bg-soft)" }}
+                            >
+                              <SlotGroup
+                                label="Morning"
+                                emoji="🌅"
+                                slots={morning}
+                              />
+                              <SlotGroup
+                                label="Afternoon"
+                                emoji="☀️"
+                                slots={afternoon}
+                              />
+                              <SlotGroup
+                                label="Evening"
+                                emoji="🌆"
+                                slots={evening}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
+                  )}
+                  {msg.booking && <BookingCard booking={msg.booking} />}
+                  {msg.timestamp && (
+                    <p
+                      className={`text-[10px] text-gray-400 ${
+                        msg.role === "user" ? "text-right" : "text-left"
+                      }`}
+                    >
+                      {formatMessageTime(msg.timestamp)}
+                    </p>
                   )}
                 </div>
 
@@ -834,7 +1095,6 @@ export default function ChatInterface() {
               </div>
             ))}
 
-            {/* Typing indicator */}
             {loading && (
               <div className="flex justify-start">
                 <div
@@ -872,32 +1132,105 @@ export default function ChatInterface() {
         {/* Quick prompts — only on fresh conversations */}
         {!isLoadingMessages && messages.length <= 1 && (
           <div
-            className="border-t px-4 py-3"
+            className="shrink-0 border-t px-6 py-6"
             style={{ borderColor: "var(--primary-light)" }}
           >
-            <p className="mb-2 text-xs text-gray-400">Try asking about:</p>
-            <div className="flex flex-wrap gap-2">
-              {QUICK_PROMPTS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => handleSend(p)}
-                  disabled={loading}
-                  className="rounded-full border px-3 py-1.5 text-xs font-medium transition-all hover:border-blue-300 hover:bg-blue-50 disabled:opacity-50"
-                  style={{
-                    borderColor: "var(--primary-light)",
-                    color: "var(--text-dark)",
-                  }}
+            <div className="mx-auto max-w-lg">
+              {/* Header */}
+              <div className="mb-4 text-center">
+                <div
+                  className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl"
+                  style={{ background: "var(--primary-light)" }}
                 >
-                  {p}
-                </button>
-              ))}
+                  <Sparkles size={20} style={{ color: "var(--primary)" }} />
+                </div>
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: "var(--text-dark)" }}
+                >
+                  How can I help you today?
+                </p>
+                <p className="mt-1 text-xs text-gray-400">
+                  Choose a concern below or describe your symptoms
+                </p>
+              </div>
+
+              {/* Prompt cards grid */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {[
+                  {
+                    label: "Skin rash or acne",
+                    emoji: "🩺",
+                    prompt: "I have a skin rash",
+                  },
+                  {
+                    label: "Heart checkup",
+                    emoji: "❤️",
+                    prompt: "Need a heart checkup",
+                  },
+                  {
+                    label: "Child has fever",
+                    emoji: "👶",
+                    prompt: "My child has fever",
+                  },
+                  {
+                    label: "Back or joint pain",
+                    emoji: "🦴",
+                    prompt: "Back pain for 2 weeks",
+                  },
+                  { label: "Dental pain", emoji: "🦷", prompt: "Dental pain" },
+                  { label: "Eye problem", emoji: "👁️", prompt: "Eye problem" },
+                ].map(({ label, emoji, prompt }) => (
+                  <button
+                    key={prompt}
+                    onClick={() => handleSend(prompt)}
+                    disabled={loading}
+                    className="flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-50"
+                    style={{
+                      borderColor: "var(--primary-light)",
+                      background: "var(--bg-soft)",
+                    }}
+                  >
+                    <span className="text-lg">{emoji}</span>
+                    <span
+                      className="text-xs leading-tight font-medium"
+                      style={{ color: "var(--text-dark)" }}
+                    >
+                      {label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Doctor search shortcut */}
+              <div
+                className="mt-3 flex items-center gap-2 rounded-xl border px-4 py-2.5"
+                style={{
+                  borderColor: "var(--primary-light)",
+                  background: "var(--bg-soft)",
+                }}
+              >
+                <Stethoscope size={13} style={{ color: "var(--accent)" }} />
+                <p className="text-xs text-gray-500">
+                  Looking for a specific doctor?{" "}
+                  <button
+                    onClick={() =>
+                      handleSend("I want to find a doctor by name")
+                    }
+                    className="font-semibold underline-offset-2 hover:underline"
+                    style={{ color: "var(--primary)" }}
+                  >
+                    Search by name
+                  </button>
+                </p>
+              </div>
             </div>
           </div>
         )}
 
         {/* Input bar */}
         <div
-          className="border-t p-4"
+          className="shrink-0 border-t p-4"
           style={{ borderColor: "var(--primary-light)" }}
         >
           <form onSubmit={handleSubmit} className="flex items-center gap-3">

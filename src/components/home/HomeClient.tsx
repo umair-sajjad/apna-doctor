@@ -155,14 +155,18 @@ const SUGGESTED_PROMPTS = [
   "Back pain for 2 weeks",
 ];
 
-export default function HomeClient() {
+export default function HomeClient({ isLoggedIn }: { isLoggedIn: boolean }) {
   const router = useRouter();
   const [aiInput, setAiInput] = useState("");
 
   const handleAiSubmit = (prompt?: string) => {
-    const query = prompt ?? aiInput;
-    if (!query.trim()) return;
-    router.push(`/chat?q=${encodeURIComponent(query.trim())}`);
+    const query = (prompt ?? aiInput).trim();
+    if (!query) return;
+    if (!isLoggedIn) {
+      router.push(`/login/user?next=${encodeURIComponent(`/chat?q=${encodeURIComponent(query)}`)}`);
+      return;
+    }
+    router.push(`/chat?q=${encodeURIComponent(query)}`);
   };
 
   return (
@@ -283,7 +287,11 @@ export default function HomeClient() {
                     onChange={(e) => setAiInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleAiSubmit()}
                     placeholder="Describe your health concern…"
-                    className="flex-1 bg-transparent py-2 text-sm text-white placeholder-white/30 focus:outline-none"
+                    className="hero-ai-input flex-1 bg-transparent py-2 text-sm focus:outline-none"
+                    style={{
+                      color: "white",
+                      caretColor: "white",
+                    }}
                   />
                   <button
                     onClick={() => handleAiSubmit()}

@@ -11,6 +11,7 @@ import {
   Phone,
   CreditCard,
   Star,
+  MessageCircle,
 } from "lucide-react";
 
 export default async function AppointmentDetailPage({
@@ -199,6 +200,38 @@ export default async function AppointmentDetailPage({
               ))}
             </div>
           </div>
+
+          {/* Message Doctor button */}
+          {["confirmed", "completed"].includes(appointment.status) && (
+            <div
+              className="flex items-center justify-between rounded-2xl bg-white p-5"
+              style={{ border: "1px solid var(--primary-light)" }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl"
+                  style={{ background: "var(--primary-light)" }}
+                >
+                  <MessageCircle size={18} style={{ color: "var(--primary)" }} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-dark)" }}>
+                    Message Doctor
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Send a message to Dr. {appointment.doctors.full_name}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={`/messages?doctorId=${appointment.doctor_id}`}
+                className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))" }}
+              >
+                <MessageCircle size={14} /> Message
+              </Link>
+            </div>
+          )}
 
           {/* Chief complaint */}
           {appointment.chief_complaint && (

@@ -28,15 +28,16 @@ export interface ExtractedData {
     city: string | null;
   };
   selected_doctor_id: string | null;
-  selected_slot: {
-    date: string | null;
-    time: string | null;
-  };
+  selected_slot: { date: string | null; time: string | null };
   patient_info: {
     name: string | null;
     phone: string | null;
     email: string | null;
   };
+  doctors_offset: number;
+  shown_doctor_ids: string[];
+  fallback_offered: boolean;
+  doctor_name_query: string | null;
 }
 
 export interface DoctorResult {
@@ -50,6 +51,7 @@ export interface DoctorResult {
   clinic_name: string;
   city: string;
   experience: number;
+  distance_meters?: number;
 }
 
 export interface SlotsByDate {
@@ -87,4 +89,5 @@ export interface LLMResponse {
   collected?: { name?: string | null; phone?: string | null };
   all_collected?: boolean;
   response: string;
+  doctor_name?: string | null;
 }

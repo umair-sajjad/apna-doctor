@@ -135,6 +135,7 @@ export async function signIn(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const userType = formData.get("userType") as "user" | "doctor";
+  const next = (formData.get("next") as string | null)?.trim() || null;
 
   const { data: authData, error } = await supabase.auth.signInWithPassword({
     email,
@@ -172,7 +173,8 @@ export async function signIn(formData: FormData) {
     }
 
     revalidatePath("/", "layout");
-    redirect("/dashboard");
+    // Redirect to the requested page if provided, otherwise default dashboard
+    redirect(next && next.startsWith("/") ? next : "/dashboard");
   }
 }
 

@@ -22,6 +22,18 @@ export default async function DoctorNavbar() {
     return <DoctorNavbarClient doctor={null} />;
   }
 
+  // Unread message count for doctor
+  const { data: unreadConvs } = await supabase
+    .from("dm_conversations")
+    .select("doctor_unread_count")
+    .eq("doctor_id", user.id)
+    .gt("doctor_unread_count", 0);
+
+  const messageCount = (unreadConvs ?? []).reduce(
+    (sum, row) => sum + (row.doctor_unread_count ?? 0),
+    0
+  );
+
   return (
     <DoctorNavbarClient
       doctor={{
@@ -30,6 +42,7 @@ export default async function DoctorNavbar() {
         email: user.email ?? "",
         profile_photo: doctor.profile_image ?? null,
       }}
+      messageCount={messageCount}
     />
   );
 }

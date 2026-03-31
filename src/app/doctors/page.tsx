@@ -29,6 +29,8 @@ export default async function DoctorsPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isLoggedIn = !!user;
 
   const currentPage = Math.max(1, parseInt(params.page || "1", 10));
   const offset = (currentPage - 1) * PAGE_SIZE;
@@ -148,6 +150,7 @@ export default async function DoctorsPage({
             totalCount={count}
             currentPage={currentPage}
             pageSize={PAGE_SIZE}
+            isLoggedIn={isLoggedIn}
           />
         )}
       </div>

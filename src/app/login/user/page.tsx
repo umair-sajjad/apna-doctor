@@ -3,7 +3,13 @@ import UserLoginForm from "./UserLoginForm";
 import Logo from "@/components/shared/logo";
 import { Stethoscope } from "lucide-react";
 
-export default function UserLoginPage() {
+export default async function UserLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+
   return (
     <div
       className="flex min-h-screen flex-col items-center justify-center px-4 py-16"
@@ -25,7 +31,7 @@ export default function UserLoginPage() {
           </p>
         </div>
 
-        <UserLoginForm />
+        <UserLoginForm next={next} />
 
         <div className="mt-6 space-y-2 text-center text-sm">
           <p className="text-gray-500">

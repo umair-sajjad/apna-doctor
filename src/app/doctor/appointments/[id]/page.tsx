@@ -12,6 +12,7 @@ import {
   Clock,
   CreditCard,
   MessageSquare,
+  MessageCircle,
 } from "lucide-react";
 
 const STATUS_STYLES: Record<
@@ -191,6 +192,38 @@ export default async function DoctorAppointmentDetailPage({
               ))}
             </div>
           </div>
+
+          {/* Message Patient button */}
+          {appointment.user_id && (
+            <div
+              className="flex items-center justify-between rounded-2xl bg-white p-5"
+              style={{ border: "1px solid var(--primary-light)" }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl"
+                  style={{ background: "var(--primary-light)" }}
+                >
+                  <MessageCircle size={18} style={{ color: "var(--primary)" }} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-dark)" }}>
+                    Message Patient
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Send a message to {appointment.users?.full_name || appointment.patient_name}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={`/doctor/messages?userId=${appointment.user_id}`}
+                className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))" }}
+              >
+                <MessageCircle size={14} /> Message
+              </Link>
+            </div>
+          )}
 
           {/* Chief complaint */}
           {appointment.chief_complaint && (

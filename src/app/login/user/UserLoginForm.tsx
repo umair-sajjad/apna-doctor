@@ -10,7 +10,7 @@ import Link from "next/link";
 
 type Errors = { email?: string; password?: string };
 
-export default function UserLoginForm() {
+export default function UserLoginForm({ next }: { next?: string }) {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -91,6 +91,7 @@ export default function UserLoginForm() {
       style={{ border: "1px solid var(--primary-light)" }}
     >
       <input type="hidden" name="userType" value="user" />
+      {next && <input type="hidden" name="next" value={next} />}
 
       {/* Email */}
       <div>

@@ -215,9 +215,11 @@ export type Database = {
           created_at: string
           extracted_data: Json | null
           id: string
+          last_message_at: string | null
           outcome_type: string | null
           session_id: string
           status: string
+          title: string | null
           updated_at: string
           user_id: string | null
         }
@@ -225,9 +227,11 @@ export type Database = {
           created_at?: string
           extracted_data?: Json | null
           id?: string
+          last_message_at?: string | null
           outcome_type?: string | null
           session_id: string
           status?: string
+          title?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -235,9 +239,11 @@ export type Database = {
           created_at?: string
           extracted_data?: Json | null
           id?: string
+          last_message_at?: string | null
           outcome_type?: string | null
           session_id?: string
           status?: string
+          title?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -277,6 +283,107 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dm_conversations: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          doctor_unread_count: number
+          id: string
+          last_message_at: string
+          last_message_preview: string | null
+          updated_at: string
+          user_id: string
+          user_unread_count: number
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          doctor_unread_count?: number
+          id?: string
+          last_message_at?: string
+          last_message_preview?: string | null
+          updated_at?: string
+          user_id: string
+          user_unread_count?: number
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          doctor_unread_count?: number
+          id?: string
+          last_message_at?: string
+          last_message_preview?: string | null
+          updated_at?: string
+          user_id?: string
+          user_unread_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dm_conversations_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dm_conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dm_messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string
+          file_name: string | null
+          file_size: number | null
+          file_type: string | null
+          file_url: string | null
+          id: string
+          message_type: string
+          sender_id: string
+          sender_type: string
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          message_type?: string
+          sender_id: string
+          sender_type: string
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          message_type?: string
+          sender_id?: string
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dm_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "dm_conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -354,6 +461,7 @@ export type Database = {
           pmdc_number: string | null
           profile_image: string | null
           qualification: string
+          search_vector: unknown
           specialization: string
           street: string | null
           total_appointments: number
@@ -393,6 +501,7 @@ export type Database = {
           pmdc_number?: string | null
           profile_image?: string | null
           qualification: string
+          search_vector?: unknown
           specialization: string
           street?: string | null
           total_appointments?: number
@@ -432,6 +541,7 @@ export type Database = {
           pmdc_number?: string | null
           profile_image?: string | null
           qualification?: string
+          search_vector?: unknown
           specialization?: string
           street?: string | null
           total_appointments?: number
@@ -1053,6 +1163,38 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      search_doctors: {
+        Args: {
+          p_city?: string
+          p_gender?: string
+          p_language?: string
+          p_limit?: number
+          p_max_fee?: number
+          p_min_rating?: number
+          p_offset?: number
+          p_query?: string
+          p_sort_by?: string
+          p_spec?: string
+        }
+        Returns: {
+          average_rating: number
+          bio: string
+          city: string
+          clinic_address: string
+          clinic_name: string
+          consultation_fee: number
+          experience: number
+          full_name: string
+          gender: string
+          id: string
+          languages: string[]
+          profile_image: string
+          qualification: string
+          specialization: string
+          total_count: number
+          total_reviews: number
+        }[]
+      }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown

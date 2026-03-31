@@ -18,6 +18,7 @@ import {
   Filter,
   Search,
   Loader2,
+  MessageCircle,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ interface Props {
   totalCount: number;
   currentPage: number;
   pageSize: number;
+  isLoggedIn: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -117,6 +119,7 @@ export default function DoctorSearchClient({
   totalCount,
   currentPage,
   pageSize,
+  isLoggedIn,
 }: Props) {
   const router = useRouter();
 
@@ -819,6 +822,18 @@ export default function DoctorSearchClient({
                         >
                           View Profile
                         </Link>
+                        {isLoggedIn && (
+                          <Link
+                            href={`/messages?doctorId=${doc.id}`}
+                            className="flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold transition-all hover:bg-blue-50"
+                            style={{
+                              borderColor: "var(--primary-light)",
+                              color: "var(--primary)",
+                            }}
+                          >
+                            <MessageCircle size={12} /> Message
+                          </Link>
+                        )}
                         <Link
                           href={`/booking/${doc.id}`}
                           className="rounded-xl px-4 py-2 text-xs font-semibold text-white transition-all hover:opacity-90"

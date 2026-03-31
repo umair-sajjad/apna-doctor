@@ -46,6 +46,11 @@ body {
 .font-display {
   font-family: var(--font-display);
 }
+
+/* Hero AI input placeholder */
+.hero-ai-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
 .font-urdu {
   font-family: var(--font-urdu);
   direction: rtl;
