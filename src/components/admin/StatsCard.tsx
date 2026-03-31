@@ -12,6 +12,7 @@ interface StatsCardProps {
   icon: string;
   trend: string;
   sparklineColor: string;
+  sparklineData?: number[];
   index?: number;
 }
 
@@ -23,6 +24,7 @@ export default function StatsCard({
   icon,
   trend,
   sparklineColor,
+  sparklineData,
   index = 0,
 }: StatsCardProps) {
   const changeColor =
@@ -36,10 +38,10 @@ export default function StatsCard({
     orange: "#f59e0b",
   };
 
-  // Generate sparkline data
-  const data = Array.from({ length: 10 }, (_, i) => ({
-    value: Math.random() * 100 + 20,
-  }));
+  const data = (sparklineData && sparklineData.length > 0
+    ? sparklineData
+    : Array.from({ length: 10 }, () => Math.random() * 100 + 20)
+  ).map((v) => ({ value: v }));
 
   return (
     <motion.div

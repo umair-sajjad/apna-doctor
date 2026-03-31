@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { notifyAppointmentStatusChanged } from "@/lib/notifications/in-app";
 
 const VALID_STATUSES = ["pending", "confirmed", "completed", "cancelled", "no_show"] as const;
 type AppointmentStatus = typeof VALID_STATUSES[number];
@@ -74,6 +75,11 @@ export async function PATCH(
         { status: 500 }
       );
     }
+
+    // Fire in-app notification to patient (non-blocking)
+    notifyAppointmentStatusChanged(id, status).catch((e) =>
+      console.error("[doctor PATCH] In-app notification error:", e)
+    );
 
     return NextResponse.json({ appointment: updatedAppointment });
   } catch (error) {

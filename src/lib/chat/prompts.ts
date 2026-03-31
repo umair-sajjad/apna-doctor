@@ -1,4 +1,4 @@
-import { ExtractedData } from "@/types/chat";
+import { ExtractedData, UserContext } from "@/types/chat";
 
 const SPECIALTIES = [
   "General Physician",
@@ -15,9 +15,38 @@ const SPECIALTIES = [
   "Psychiatrist",
 ];
 
+function buildUserContextBlock(user?: UserContext): string {
+  if (!user) return "No user information available.";
+
+  const lines: string[] = [];
+
+  if (user.full_name) lines.push(`- Name: ${user.full_name}`);
+  if (user.gender) lines.push(`- Gender: ${user.gender}`);
+  if (user.date_of_birth) {
+    const age =
+      new Date().getFullYear() - new Date(user.date_of_birth).getFullYear();
+    lines.push(`- Age: approximately ${age} years old`);
+  }
+  if (user.city || user.area) {
+    const location = [user.area, user.city].filter(Boolean).join(", ");
+    lines.push(`- Location: ${location}`);
+  }
+  if (user.has_diabetes) lines.push(`- Has diabetes: Yes`);
+  if (user.has_high_blood_pressure)
+    lines.push(`- Has high blood pressure: Yes`);
+  if (user.diseases && user.diseases.length > 0) {
+    lines.push(`- Known conditions: ${user.diseases.join(", ")}`);
+  }
+
+  return lines.length > 0
+    ? lines.join("\n")
+    : "No additional health information.";
+}
+
 export function buildStage1Prompt(
   userMessage: string,
-  history: { role: string; content: string }[] = []
+  history: { role: string; content: string }[] = [],
+  userContext?: UserContext
 ): string {
   const historyText =
     history.length > 0
@@ -26,6 +55,9 @@ export function buildStage1Prompt(
           .map((m) => `${m.role === "user" ? "Patient" : "Zara"}: ${m.content}`)
           .join("\n")
       : "No previous messages.";
+
+  const userBlock = buildUserContextBlock(userContext);
+  const firstName = userContext?.full_name?.split(" ")[0] ?? null;
 
   return `You are Zara, a warm and friendly medical receptionist at ApnaDoctor — a doctor booking platform in Pakistan. You help patients find and book the right doctor through natural conversation.
 
@@ -36,6 +68,10 @@ Your personality:
 - You keep responses concise — 1 to 3 sentences max
 - You gently guide patients toward finding a doctor without being pushy
 - You are context-aware — you always read the conversation history before responding
+- You use the patient's first name naturally when appropriate — not in every message, just occasionally
+
+Patient information (use this to personalize your responses):
+${userBlock}
 
 Available specialties: ${SPECIALTIES.join(", ")}
 
@@ -59,7 +95,10 @@ ${historyText}
 Rules:
 - ALWAYS read the conversation history above before responding
 - Use history to understand context — if user says "which one", "that doctor", "the first one", refer to what was discussed
-- Greetings (hi, hello, salaam, how are you, good morning) → respond warmly, intent = "greeting"
+- Use patient information naturally — if they have diabetes and mention stomach issues, acknowledge the context
+- If patient location is known, mention you'll search near their area
+- Greet the patient by first name (${firstName ?? "their name"}) only on the very first message of a new conversation
+- Greetings (hi, hello, salaam, how are you, good morning) → respond warmly using their name, intent = "greeting"
 - Health symptoms or asking for a doctor → intent = "health_concern", always set specialty
 - General health questions or health advice → answer briefly and naturally, intent = "health_question", specialty = null
 - Completely unrelated to health (cricket, weather, politics, recipes) → politely say you only help with doctor bookings, intent = "off_topic"
@@ -86,7 +125,7 @@ export function buildStage6Prompt(
   userMessage: string,
   currentInfo: ExtractedData["patient_info"]
 ): string {
-  return `You are Zara, a friendly receptionist at ApnaDoctor. You are collecting patient details to complete their appointment booking.
+  return `You are ApnaDoctor Assistant, a friendly receptionist at ApnaDoctor. You are collecting patient details to complete their appointment booking.
 
 Already collected:
 - Name: ${currentInfo.name ?? "not yet provided"}
@@ -122,7 +161,7 @@ export function buildConfirmationPrompt(booking: {
   consultation_fee: number;
   booking_reference: string;
 }): string {
-  return `You are Zara, a receptionist at ApnaDoctor. An appointment has just been successfully booked. Give the patient a warm confirmation.
+  return `You are ApnaDoctor Assistant, a receptionist at ApnaDoctor. An appointment has just been successfully booked. Give the patient a warm confirmation.
 
 Booking details:
 - Doctor: ${booking.doctor_name} (${booking.specialization})
@@ -149,7 +188,8 @@ Respond ONLY in this exact JSON:
 export function buildOffTopicPrompt(
   userMessage: string,
   currentStage: string,
-  history: { role: string; content: string }[] = []
+  history: { role: string; content: string }[] = [],
+  userContext?: UserContext
 ): string {
   const historyText =
     history.length > 0
@@ -159,13 +199,17 @@ export function buildOffTopicPrompt(
           .join("\n")
       : "";
 
+  const firstName = userContext?.full_name?.split(" ")[0] ?? null;
+
   return `You are Zara, a friendly receptionist at ApnaDoctor. A patient said something that is not related to health or doctor booking.
 
 ${historyText ? `Recent conversation:\n${historyText}\n` : ""}
 What they just said: "${userMessage}"
+${firstName ? `Patient's name: ${firstName}` : ""}
 
 Instructions:
 - Respond naturally and kindly — like a real receptionist would
+- Use the patient's name occasionally if available
 - Do NOT mention any internal terms like "stage", "booking flow", or "system"
 - Gently let them know you can only help with health and doctor-related topics
 - If conversation history shows they were mid-booking, remind them where they were
@@ -180,7 +224,7 @@ Respond ONLY in this exact JSON:
 }
 
 export function buildNameSearchPrompt(userMessage: string): string {
-  return `You are Zara, a friendly receptionist at ApnaDoctor. A patient is asking to find a specific doctor by name.
+  return `You are ApnaDoctor Assistant, a friendly receptionist at ApnaDoctor. A patient is asking to find a specific doctor by name.
 
 User message: "${userMessage}"
 

@@ -10,99 +10,171 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  BarChart,
+  Bar,
 } from "recharts";
 
-interface RevenueChartProps {
-  data: any[];
+interface DataPoint {
+  label: string;
+  revenue: number;
+  transactions: number;
 }
 
-export default function RevenueChart({ data }: RevenueChartProps) {
-  const [timeRange, setTimeRange] = useState("24H");
+interface RevenueChartProps {
+  data: DataPoint[];
+}
 
-  // Generate 24 hours of mock data
-  const chartData = Array.from({ length: 24 }, (_, i) => ({
-    hour: `${i.toString().padStart(2, "0")}:00`,
-    requests: Math.floor(Math.random() * 3000) + 1000,
-  }));
+const tooltipStyle = {
+  backgroundColor: "#1f2937",
+  border: "none",
+  borderRadius: "8px",
+  color: "#fff",
+  fontSize: "12px",
+};
+
+function fmtK(v: unknown) {
+  const n = Number(v);
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return String(n);
+}
+
+type Range = "1M" | "3M" | "6M" | "1Y" | "ALL";
+
+export default function RevenueChart({ data }: RevenueChartProps) {
+  const [range, setRange] = useState<Range>("6M");
+  const [view, setView] = useState<"revenue" | "transactions">("revenue");
+
+  const sliceMap: Record<Range, number> = {
+    "1M": 1,
+    "3M": 3,
+    "6M": 6,
+    "1Y": 12,
+    ALL:  data.length,
+  };
+
+  const sliced = data.slice(-sliceMap[range]);
+  const hasData = sliced.some((d) => d.revenue > 0 || d.transactions > 0);
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: 0.2 }}
+      transition={{ delay: 0.15 }}
       className="rounded-xl border border-gray-200 bg-white p-6"
     >
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            Request Volume
-          </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Requests per minute over the last 24 hours
+          <h2 className="text-base font-semibold text-gray-900">Revenue Overview</h2>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Monthly revenue and transaction volume
           </p>
         </div>
 
-        {/* Time Range Selector */}
-        <div className="flex gap-2">
-          {["1M", "3M", "6M", "1Y", "ALL"].map((range) => (
-            <motion.button
-              key={range}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setTimeRange(range)}
-              className={`rounded-lg px-3 py-1.5 text-sm transition-all ${
-                timeRange === range
-                  ? "bg-gray-900 text-white shadow-lg"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              {range}
-            </motion.button>
-          ))}
+        <div className="flex items-center gap-3">
+          {/* View toggle */}
+          <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            {(["revenue", "transactions"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
+                  view === v
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {v === "revenue" ? "Revenue" : "Transactions"}
+              </button>
+            ))}
+          </div>
+
+          {/* Time range */}
+          <div className="flex gap-1">
+            {(["1M", "3M", "6M", "1Y", "ALL"] as Range[]).map((r) => (
+              <motion.button
+                key={r}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setRange(r)}
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
+                  range === r
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-500 hover:bg-gray-100"
+                }`}
+              >
+                {r}
+              </motion.button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Chart */}
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
-            <defs>
-              <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis
-              dataKey="hour"
-              tick={{ fontSize: 12, fill: "#6b7280" }}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 12, fill: "#6b7280" }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#1f2937",
-                border: "none",
-                borderRadius: "8px",
-                color: "#fff",
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="requests"
-              stroke="#dc2626"
-              strokeWidth={2}
-              fillOpacity={1}
-              fill="url(#colorRequests)"
-              animationDuration={1500}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+      <div className="h-72">
+        {hasData ? (
+          <ResponsiveContainer width="100%" height="100%">
+            {view === "revenue" ? (
+              <AreaChart data={sliced}>
+                <defs>
+                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0}   />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: "#9ca3af" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#9ca3af" }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={fmtK}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(v) => [`PKR ${Number(v ?? 0).toLocaleString()}`, "Revenue"]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#22c55e"
+                  strokeWidth={2.5}
+                  fill="url(#revGrad)"
+                />
+              </AreaChart>
+            ) : (
+              <BarChart data={sliced} barCategoryGap="35%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: "#9ca3af" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#9ca3af" }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(v) => [Number(v ?? 0), "Transactions"]}
+                />
+                <Bar dataKey="transactions" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center rounded-lg bg-gray-50">
+            <p className="text-sm text-gray-400">No data available for this range</p>
+          </div>
+        )}
       </div>
     </motion.div>
   );

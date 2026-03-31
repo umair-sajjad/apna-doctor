@@ -8,7 +8,12 @@ import {
   buildNameSearchPrompt,
 } from "./prompts";
 import { getAvailableSlots } from "./slot-generator";
-import { ExtractedData, ChatApiResponse, DoctorResult } from "@/types/chat";
+import {
+  ExtractedData,
+  ChatApiResponse,
+  DoctorResult,
+  UserContext,
+} from "@/types/chat";
 import { nanoid } from "nanoid";
 
 const DEFAULT_EXTRACTED_DATA: ExtractedData = {
@@ -108,6 +113,7 @@ export async function processMessage(
     serviceSupabase,
     conversationId
   );
+  const userContext = await getUserContext(supabase, userId);
 
   console.log("=== processMessage ===");
   console.log("ConversationId:", conversationId);
@@ -134,7 +140,8 @@ export async function processMessage(
       state,
       userId,
       userMessage,
-      recentMessages
+      recentMessages,
+      userContext
     );
   }
 
@@ -161,7 +168,8 @@ async function handleTextMessage(
   state: ExtractedData,
   userId: string,
   message: string,
-  history: { role: string; content: string }[] = []
+  history: { role: string; content: string }[] = [],
+  userContext?: UserContext
 ): Promise<ChatApiResponse> {
   if (state.stage === "collecting_info") {
     return handleInfoCollection(supabase, state, userId, message);
@@ -189,11 +197,13 @@ async function handleTextMessage(
     }
   }
 
-  const llmRes = await callLLM(buildStage1Prompt(message, history));
+  const llmRes = await callLLM(
+    buildStage1Prompt(message, history, userContext)
+  );
 
   if (llmRes.intent === "off_topic") {
     const redirectRes = await callLLM(
-      buildOffTopicPrompt(message, state.stage, history)
+      buildOffTopicPrompt(message, state.stage, history, userContext)
     );
     return { response: redirectRes.response, stage: state.stage };
   }
@@ -705,4 +715,30 @@ async function getRecentMessages(
     .limit(limit);
 
   return (data ?? []).reverse();
+}
+
+async function getUserContext(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<UserContext> {
+  const { data } = await supabase
+    .from("users")
+    .select(
+      "full_name, phone, email, city, area, gender, date_of_birth, diseases, has_diabetes, has_high_blood_pressure"
+    )
+    .eq("id", userId)
+    .single();
+
+  return {
+    full_name: data?.full_name ?? null,
+    phone: data?.phone ?? null,
+    email: data?.email ?? null,
+    city: data?.city ?? null,
+    area: data?.area ?? null,
+    gender: data?.gender ?? null,
+    date_of_birth: data?.date_of_birth ?? null,
+    diseases: data?.diseases ?? null,
+    has_diabetes: data?.has_diabetes ?? null,
+    has_high_blood_pressure: data?.has_high_blood_pressure ?? null,
+  };
 }

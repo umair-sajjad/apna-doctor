@@ -70,14 +70,23 @@ export async function toggleReviewVisibility(reviewId: string, currentlyVisible:
   if (!isAdmin) return { error: "Forbidden" };
 
   const db = getServiceClient();
+
+  // Fetch doctor_id before updating so we can revalidate their profile
+  const { data: review } = await db
+    .from("reviews")
+    .select("doctor_id")
+    .eq("id", reviewId)
+    .single();
+
   const { error } = await db
     .from("reviews")
-    .update({ is_visible: !currentlyVisible })
+    .update({ is_visible: !currentlyVisible, updated_at: new Date().toISOString() })
     .eq("id", reviewId);
 
   if (error) return { error: error.message };
 
   revalidatePath("/admin/reviews");
+  if (review?.doctor_id) revalidatePath(`/doctors/${review.doctor_id}`);
   return { success: true };
 }
 
@@ -86,6 +95,14 @@ export async function deleteReview(reviewId: string) {
   if (!isAdmin) return { error: "Forbidden" };
 
   const db = getServiceClient();
+
+  // Fetch doctor_id before deleting so we can revalidate their profile
+  const { data: review } = await db
+    .from("reviews")
+    .select("doctor_id")
+    .eq("id", reviewId)
+    .single();
+
   const { error } = await db
     .from("reviews")
     .delete()
@@ -94,6 +111,7 @@ export async function deleteReview(reviewId: string) {
   if (error) return { error: error.message };
 
   revalidatePath("/admin/reviews");
+  if (review?.doctor_id) revalidatePath(`/doctors/${review.doctor_id}`);
   return { success: true };
 }
 

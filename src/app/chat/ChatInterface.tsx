@@ -81,7 +81,6 @@ const QUICK_PROMPTS = [
 
 const DRAFT_KEY = (id: string) => `chat_draft_${id}`;
 const ACTIVE_CONV_KEY = "chat_active_conversation_id";
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatRelativeTime(dateStr: string): string {
@@ -268,6 +267,7 @@ export default function ChatInterface() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasSentInitialQuery = useRef(false);
 
   useEffect(() => {
     conversationIdRef.current = conversationId;
@@ -343,18 +343,6 @@ export default function ChatInterface() {
   }, []);
 
   // ── Bootstrap on mount ──────────────────────────────────────────────────────
-  useEffect(() => {
-    fetchConversations();
-
-    if (initialQuery.trim()) return;
-
-    const stored = sessionStorage.getItem(ACTIVE_CONV_KEY);
-    if (stored) {
-      setConversationId(stored);
-      loadConversationMessages(stored);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -376,11 +364,24 @@ export default function ChatInterface() {
   }, []);
 
   useEffect(() => {
+    fetchConversations();
+
     if (initialQuery.trim()) {
+      if (hasSentInitialQuery.current) return;
+      hasSentInitialQuery.current = true;
+
       const newId = uuidv4();
       setConversationId(newId);
+      conversationIdRef.current = newId;
       sessionStorage.setItem(ACTIVE_CONV_KEY, newId);
       handleSend(initialQuery, undefined, undefined, newId);
+      return;
+    }
+
+    const stored = sessionStorage.getItem(ACTIVE_CONV_KEY);
+    if (stored) {
+      setConversationId(stored);
+      loadConversationMessages(stored);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

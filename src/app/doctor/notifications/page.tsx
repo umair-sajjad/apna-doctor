@@ -1,16 +1,24 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import UserNavbar from "@/components/shared/UserNavbar";
+import DoctorNavbar from "@/components/shared/DoctorNavbar";
 import NotificationsList from "@/components/notifications/NotificationsList";
 
 export async function generateMetadata() {
-  return { title: "Notifications - ApnaDoctor" };
+  return { title: "Notifications - ApnaDoctor Doctor Portal" };
 }
 
-export default async function NotificationsPage() {
+export default async function DoctorNotificationsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login/user");
+  if (!user) redirect("/login/doctor");
+
+  // Confirm caller is a doctor
+  const { data: doctor } = await supabase
+    .from("doctors")
+    .select("id")
+    .eq("id", user.id)
+    .single();
+  if (!doctor) redirect("/login/doctor");
 
   const { data: notifications } = await supabase
     .from("notifications")
@@ -27,7 +35,7 @@ export default async function NotificationsPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-soft)" }}>
-      <UserNavbar />
+      <DoctorNavbar />
       <div className="mx-auto max-w-3xl px-4 py-10">
         {/* Header */}
         <div
@@ -47,10 +55,10 @@ export default async function NotificationsPage() {
           />
           <div className="relative z-10 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium" style={{ color: "var(--accent)" }}>Updates</p>
+              <p className="text-sm font-medium" style={{ color: "var(--accent)" }}>Doctor Portal</p>
               <h1 className="font-display mt-1 text-2xl font-bold text-white">Notifications</h1>
               <p className="mt-0.5 text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-                Stay updated with your appointments and alerts
+                New bookings, cancellations, and appointment updates
               </p>
             </div>
             {(unreadCount ?? 0) > 0 && (

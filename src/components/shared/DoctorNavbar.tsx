@@ -34,6 +34,13 @@ export default async function DoctorNavbar() {
     0
   );
 
+  // Unread notification count
+  const { count: notificationCount } = await supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("is_read", false);
+
   return (
     <DoctorNavbarClient
       doctor={{
@@ -43,6 +50,7 @@ export default async function DoctorNavbar() {
         profile_photo: doctor.profile_image ?? null,
       }}
       messageCount={messageCount}
+      notificationCount={notificationCount ?? 0}
     />
   );
 }

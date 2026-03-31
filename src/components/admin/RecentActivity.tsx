@@ -1,91 +1,122 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+import Link from "next/link";
+import { Calendar, CreditCard } from "lucide-react";
+
+const adminSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export default async function RecentActivity() {
-  const supabase = await createClient();
+  const [{ data: recentAppointments }, { data: recentPayments }] = await Promise.all([
+    adminSupabase
+      .from("appointments")
+      .select("id, created_at, status, patient_name, appointment_date, appointment_time, doctors(full_name), users(full_name)")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    adminSupabase
+      .from("payment_transactions")
+      .select("id, amount, paid_at, status, appointments(patient_name, booking_reference, doctors(full_name))")
+      .eq("status", "succeeded")
+      .order("paid_at", { ascending: false })
+      .limit(5),
+  ]);
 
-  // Get recent appointments
-  const { data: recentAppointments } = await supabase
-    .from("appointments")
-    .select(
-      `
-      *,
-      doctors(full_name),
-      users(full_name)
-    `
-    )
-    .order("created_at", { ascending: false })
-    .limit(10);
-
-  const activities = recentAppointments?.map((appt) => {
-    const now = new Date();
-    const created = new Date(appt.created_at);
-    const diffMinutes = Math.floor((now.getTime() - created.getTime()) / 60000);
-
-    let timeAgo = "";
-    if (diffMinutes < 60) {
-      timeAgo = `${diffMinutes}m ago`;
-    } else if (diffMinutes < 1440) {
-      timeAgo = `${Math.floor(diffMinutes / 60)}h ago`;
-    } else {
-      timeAgo = `${Math.floor(diffMinutes / 1440)}d ago`;
-    }
-
-    return {
-      id: appt.id,
-      type: "appointment",
-      user: appt.users?.full_name || appt.patient_name,
-      action: `booked appointment with Dr. ${appt.doctors.full_name}`,
-      time: timeAgo,
-      status: appt.status,
-    };
-  });
+  const STATUS_STYLE: Record<string, string> = {
+    confirmed:  "bg-green-100 text-green-700",
+    completed:  "bg-blue-100 text-blue-700",
+    pending:    "bg-yellow-100 text-yellow-700",
+    cancelled:  "bg-red-100 text-red-700",
+    no_show:    "bg-gray-100 text-gray-600",
+  };
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">
-          Recent Deployments
-        </h2>
-        <button className="text-sm font-medium text-blue-600 hover:text-blue-700">
-          View all →
-        </button>
-      </div>
-
-      <div className="mb-4 text-sm text-gray-600">
-        Latest deployment activity across services
-      </div>
-
-      <div className="space-y-3">
-        {activities?.slice(0, 8).map((activity) => (
-          <div
-            key={activity.id}
-            className="flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-gray-50"
-          >
-            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-100">
-              <span className="text-sm text-green-600">✓</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm text-gray-900">
-                <span className="font-medium">{activity.user}</span>{" "}
-                <span className="text-gray-600">{activity.action}</span>
-              </p>
-              <p className="mt-1 text-xs text-gray-500">{activity.time}</p>
-            </div>
-            <div>
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* Recent Appointments */}
+      <div className="rounded-xl border border-gray-200 bg-white">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-blue-500" />
+            <h2 className="text-sm font-semibold text-gray-900">Recent Appointments</h2>
+          </div>
+          <Link href="/admin/appointments" className="text-xs font-medium text-blue-600 hover:underline">
+            View all
+          </Link>
+        </div>
+        <div className="divide-y divide-gray-50">
+          {(recentAppointments ?? []).map((appt) => (
+            <div key={appt.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                <Calendar className="h-4 w-4 text-blue-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-gray-900">
+                  {(appt as any).users?.full_name ?? appt.patient_name}
+                </p>
+                <p className="truncate text-xs text-gray-500">
+                  Dr. {(appt as any).doctors?.full_name} · {timeAgo(appt.created_at)}
+                </p>
+              </div>
               <span
-                className={`inline-block rounded px-2 py-1 text-xs font-medium ${
-                  activity.status === "confirmed"
-                    ? "bg-green-100 text-green-700"
-                    : activity.status === "pending"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-gray-100 text-gray-700"
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${
+                  STATUS_STYLE[appt.status] ?? "bg-gray-100 text-gray-600"
                 }`}
               >
-                {activity.status}
+                {appt.status}
               </span>
             </div>
+          ))}
+          {(recentAppointments?.length ?? 0) === 0 && (
+            <p className="px-5 py-8 text-center text-sm text-gray-400">No appointments yet</p>
+          )}
+        </div>
+      </div>
+
+      {/* Recent Payments */}
+      <div className="rounded-xl border border-gray-200 bg-white">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-green-500" />
+            <h2 className="text-sm font-semibold text-gray-900">Recent Payments</h2>
           </div>
-        ))}
+          <Link href="/admin/payments" className="text-xs font-medium text-blue-600 hover:underline">
+            View all
+          </Link>
+        </div>
+        <div className="divide-y divide-gray-50">
+          {(recentPayments ?? []).map((tx) => (
+            <div key={tx.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100">
+                <CreditCard className="h-4 w-4 text-green-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-gray-900">
+                  {(tx as any).appointments?.patient_name ?? "—"}
+                </p>
+                <p className="truncate text-xs text-gray-500">
+                  Dr. {(tx as any).appointments?.doctors?.full_name ?? "—"} ·{" "}
+                  {tx.paid_at ? timeAgo(tx.paid_at) : "—"}
+                </p>
+              </div>
+              <span className="shrink-0 text-sm font-semibold text-green-600">
+                PKR {(tx as any).amount?.toLocaleString()}
+              </span>
+            </div>
+          ))}
+          {(recentPayments?.length ?? 0) === 0 && (
+            <p className="px-5 py-8 text-center text-sm text-gray-400">No payments yet</p>
+          )}
+        </div>
       </div>
     </div>
   );

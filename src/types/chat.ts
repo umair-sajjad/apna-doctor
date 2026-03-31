@@ -91,3 +91,16 @@ export interface LLMResponse {
   response: string;
   doctor_name?: string | null;
 }
+
+export interface UserContext {
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  area: string | null;
+  gender: string | null;
+  date_of_birth: string | null;
+  diseases: string[] | null;
+  has_diabetes: boolean | null;
+  has_high_blood_pressure: boolean | null;
+}

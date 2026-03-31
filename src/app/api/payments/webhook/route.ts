@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { stripe } from "@/lib/payments/stripe";
 import { sendAppointmentConfirmation } from "@/lib/notifications/service";
+import { notifyAppointmentConfirmed } from "@/lib/notifications/in-app";
 import { headers } from "next/headers";
 
 // Service-role client bypasses RLS — safe for server-only webhook handler
@@ -103,6 +104,13 @@ export async function POST(request: NextRequest) {
         console.log(`[webhook] Confirmation notifications sent`);
       } catch (notifError) {
         console.error("[webhook] Notification error (non-critical):", notifError);
+      }
+
+      try {
+        await notifyAppointmentConfirmed(appointmentId);
+        console.log(`[webhook] In-app notifications created`);
+      } catch (inAppError) {
+        console.error("[webhook] In-app notification error (non-critical):", inAppError);
       }
     } else {
       console.log(

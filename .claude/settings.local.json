@@ -3,7 +3,12 @@
     "allow": [
       "Bash(npx supabase:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep:*)",
+      "Bash(xargs ls:*)",
+      "Bash(sed -i 's/formatter={\\(v: number\\) => \\\\[`PKR \\\\${v\\\\.toLocaleString\\(\\)}`, \"\"Revenue\"\"\\\\]}/formatter={\\(v\\) => [v != null ? `PKR ${Number\\(v\\).toLocaleString\\(\\)}` : \"\"—\"\", \"\"Revenue\"\"]}/g' src/components/admin/RevenueCharts.tsx src/components/admin/RevenueChart.tsx)",
+      "Bash(sed -i 's/formatter={\\(v: number\\) => \\\\[v, \"\"Transactions\"\"\\\\]}/formatter={\\(v\\) => [v ?? 0, \"\"Transactions\"\"]}/g' src/components/admin/RevenueCharts.tsx src/components/admin/RevenueChart.tsx)"
     ]
   }
 }

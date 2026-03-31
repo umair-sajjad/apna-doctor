@@ -45,6 +45,13 @@ export default async function DoctorProfilePage({
     }
   }
 
+  // Fetch all visible reviews for accurate distribution, limit display list separately
+  const { data: allReviews } = await supabase
+    .from("reviews")
+    .select("rating")
+    .eq("doctor_id", id)
+    .eq("is_visible", true);
+
   const { data: reviews } = await supabase
     .from("reviews")
     .select("*, users(full_name)")
@@ -53,17 +60,15 @@ export default async function DoctorProfilePage({
     .order("created_at", { ascending: false })
     .limit(10);
 
-  const ratingDist = [5, 4, 3, 2, 1].map((star) => ({
-    star,
-    count: reviews?.filter((r) => r.rating === star).length ?? 0,
-    pct:
-      reviews && reviews.length > 0
-        ? Math.round(
-            (reviews.filter((r) => r.rating === star).length / reviews.length) *
-              100
-          )
-        : 0,
-  }));
+  const totalVisible = allReviews?.length ?? 0;
+  const ratingDist = [5, 4, 3, 2, 1].map((star) => {
+    const count = allReviews?.filter((r) => r.rating === star).length ?? 0;
+    return {
+      star,
+      count,
+      pct: totalVisible > 0 ? Math.round((count / totalVisible) * 100) : 0,
+    };
+  });
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-soft)" }}>

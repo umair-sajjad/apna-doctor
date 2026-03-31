@@ -45,5 +45,18 @@ export default async function UserNavbar({}) {
     0
   );
 
-  return <UserNavbarClient user={userData} messageCount={messageCount} />;
+  // Unread notification count
+  const { count: notificationCount } = await supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("is_read", false);
+
+  return (
+    <UserNavbarClient
+      user={userData}
+      messageCount={messageCount}
+      notificationCount={notificationCount ?? 0}
+    />
+  );
 }

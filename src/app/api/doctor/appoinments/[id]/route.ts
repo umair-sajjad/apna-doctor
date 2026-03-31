@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { notifyAppointmentStatusChanged } from "@/lib/notifications/in-app";
 
 export async function PATCH(
   request: NextRequest,
@@ -56,6 +57,11 @@ export async function PATCH(
         { status: 500 }
       );
     }
+
+    // Fire in-app notification to patient (non-blocking)
+    notifyAppointmentStatusChanged(id, status).catch((e) =>
+      console.error("[doctor PATCH] In-app notification error:", e)
+    );
 
     return NextResponse.json({ appointment: updatedAppointment });
   } catch (error) {

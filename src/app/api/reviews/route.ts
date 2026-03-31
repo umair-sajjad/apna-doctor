@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { createInAppNotification } from "@/lib/notifications/in-app";
 
 export async function POST(request: NextRequest) {
   try {
@@ -80,6 +81,16 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Notify doctor of new review (non-blocking)
+    const stars = "★".repeat(rating) + "☆".repeat(5 - rating);
+    createInAppNotification({
+      userId: appointment.doctors.id,
+      type: "appointment_status_changed",
+      title: "New Patient Review",
+      message: `A patient rated their appointment ${stars} (${rating}/5).${reviewText ? ` "${reviewText.slice(0, 80)}${reviewText.length > 80 ? "…" : ""}"` : ""}`,
+      data: { reviewId: review.id, appointmentId, rating },
+    }).catch((e) => console.error("[review] Notification error:", e));
 
     return NextResponse.json({ review }, { status: 201 });
   } catch (error) {
